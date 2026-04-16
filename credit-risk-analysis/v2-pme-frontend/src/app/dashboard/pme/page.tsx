@@ -25,10 +25,8 @@ export default function PMEDashboardPage() {
   const [formData, setFormData] = useState({
     business_turnover_tnd: "",
     business_expenses_tnd: "",
-    profit_margin: "",
     nbr_of_workers: "",
     workers_verified_cnss: "",
-    formal_worker_ratio: "",
     business_age_years: "",
     number_of_owners: "1",
     compliance_rne_score: 5,
@@ -47,13 +45,18 @@ export default function PMEDashboardPage() {
     setError(null);
 
     try {
+      const turnover = parseFloat(formData.business_turnover_tnd) || 0;
+      const expenses = parseFloat(formData.business_expenses_tnd) || 0;
+      const totalWorkers = parseInt(formData.nbr_of_workers) || 0;
+      const cnssWorkers = parseInt(formData.workers_verified_cnss) || 0;
+
       const payload = {
-        business_turnover_tnd: parseFloat(formData.business_turnover_tnd) || 0,
-        business_expenses_tnd: parseFloat(formData.business_expenses_tnd) || 0,
-        profit_margin: parseFloat(formData.profit_margin) || 0.1,
-        nbr_of_workers: parseInt(formData.nbr_of_workers) || 0,
-        workers_verified_cnss: parseInt(formData.workers_verified_cnss) || 0,
-        formal_worker_ratio: parseFloat(formData.formal_worker_ratio) || 1.0,
+        business_turnover_tnd: turnover,
+        business_expenses_tnd: expenses,
+        profit_margin: turnover > 0 ? (turnover - expenses) / turnover : 0,
+        nbr_of_workers: totalWorkers,
+        workers_verified_cnss: cnssWorkers,
+        formal_worker_ratio: totalWorkers > 0 ? cnssWorkers / totalWorkers : 0,
         business_age_years: parseInt(formData.business_age_years) || 1,
         number_of_owners: parseInt(formData.number_of_owners) || 1,
         compliance_rne_score: formData.compliance_rne_score,
@@ -102,6 +105,12 @@ export default function PMEDashboardPage() {
     if (tier.toLowerCase().includes("low")) return "text-teal-400 bg-teal-500/20 border-teal-500/50";
     if (tier.toLowerCase().includes("medium")) return "text-yellow-400 bg-yellow-500/20 border-yellow-500/50";
     return "text-red-400 bg-red-500/20 border-red-500/50";
+  };
+
+  const getRiskIcon = (tier: string) => {
+    if (tier.toLowerCase().includes("low")) return <ShieldCheck className="w-5 h-5" />;
+    if (tier.toLowerCase().includes("medium")) return <TrendingUp className="w-5 h-5" />;
+    return <AlertTriangle className="w-5 h-5" />;
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -168,11 +177,7 @@ export default function PMEDashboardPage() {
                       <input type="number" required value={formData.business_expenses_tnd} onChange={(e) => setFormData({ ...formData, business_expenses_tnd: e.target.value })}
                         className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-white outline-none" placeholder="180000" />
                     </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-300 ml-1">Profit Margin (Ratio 0-1)</label>
-                      <input type="number" step="0.01" value={formData.profit_margin} onChange={(e) => setFormData({ ...formData, profit_margin: e.target.value })}
-                        className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none" placeholder="0.15" />
-                    </div>
+
                     <div>
                       <label className="text-xs font-medium text-gray-300 ml-1">Business Age (Years)</label>
                       <input type="number" required value={formData.business_age_years} onChange={(e) => setFormData({ ...formData, business_age_years: e.target.value })}
@@ -189,7 +194,7 @@ export default function PMEDashboardPage() {
                 {/* 2. EMPLOYMENT MODULE */}
                 <div>
                   <h3 className="text-teal-400 font-bold mb-4 uppercase text-sm tracking-wider border-b border-white/10 pb-2">Module 2: Employment Metrics</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
                       <label className="text-xs font-medium text-gray-300 ml-1">Total Workers</label>
                       <input type="number" required value={formData.nbr_of_workers} onChange={(e) => setFormData({ ...formData, nbr_of_workers: e.target.value })} className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none" placeholder="e.g. 10" />
@@ -197,10 +202,6 @@ export default function PMEDashboardPage() {
                     <div>
                       <label className="text-xs font-medium text-gray-300 ml-1">CNSS Verified Workers</label>
                       <input type="number" required value={formData.workers_verified_cnss} onChange={(e) => setFormData({ ...formData, workers_verified_cnss: e.target.value })} className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none" placeholder="e.g. 10" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-300 ml-1">Formal Worker Ratio (0-1)</label>
-                      <input type="number" step="0.01" value={formData.formal_worker_ratio} onChange={(e) => setFormData({ ...formData, formal_worker_ratio: e.target.value })} className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none" placeholder="1.0" />
                     </div>
                   </div>
                 </div>
