@@ -7,3 +7,5 @@ build/
 *.pyc
 .env
 .DS_Store
+*.joblib
+*.csv
