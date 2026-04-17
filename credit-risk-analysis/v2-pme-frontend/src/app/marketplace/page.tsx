@@ -1,36 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
 import apiClient from "@/lib/api/axios";
 
+// Fallback Mock Data using the new schema
 const MOCK_SMES = [
-  { id: "1", name: "TechMakers Tunis", sector: "Technology", turnover: "120,000 TND", cnssRatio: "98%", finScore: 780, riskTier: "Low" },
-  { id: "2", name: "AgriSud Sfax", sector: "Agriculture", turnover: "450,000 TND", cnssRatio: "85%", finScore: 610, riskTier: "Medium" },
-  { id: "3", name: "Carthage Logistics", sector: "Transport", turnover: "850,000 TND", cnssRatio: "92%", finScore: 710, riskTier: "Low" },
-  { id: "4", name: "MedTex Bizerte", sector: "Textile", turnover: "320,000 TND", cnssRatio: "60%", finScore: 480, riskTier: "High" },
-  { id: "5", name: "Sousse E-Commerce Hub", sector: "E-Commerce", turnover: "150,000 TND", cnssRatio: "100%", finScore: 810, riskTier: "Low" },
-  { id: "6", name: "GreenEnergy Gabes", sector: "Clean Energy", turnover: "600,000 TND", cnssRatio: "80%", finScore: 650, riskTier: "Medium" },
-  { id: "7", name: "La Marsa Culinary", sector: "Food & Beverage", turnover: "90,000 TND", cnssRatio: "100%", finScore: 740, riskTier: "Low" },
-  { id: "8", name: "BuildCo Nabeul", sector: "Construction", turnover: "1,200,000 TND", cnssRatio: "45%", finScore: 420, riskTier: "High" },
-  { id: "9", name: "Djerba Tourism Services", sector: "Tourism", turnover: "500,000 TND", cnssRatio: "75%", finScore: 590, riskTier: "Medium" },
-  { id: "10", name: "Kairouan Artisans", sector: "Crafts", turnover: "60,000 TND", cnssRatio: "100%", finScore: 720, riskTier: "Low" },
-  { id: "11", name: "Sfax MetalWorks", sector: "Manufacturing", turnover: "950,000 TND", cnssRatio: "65%", finScore: 510, riskTier: "High" },
-  { id: "12", name: "Ariana Medical IT", sector: "Health Tech", turnover: "200,000 TND", cnssRatio: "100%", finScore: 820, riskTier: "Low" },
-  { id: "13", name: "Gafsa Mining Support", sector: "Industrial", turnover: "1,500,000 TND", cnssRatio: "85%", finScore: 680, riskTier: "Medium" },
-  { id: "14", name: "Tozeur Dates Export", sector: "Agriculture", turnover: "750,000 TND", cnssRatio: "90%", finScore: 760, riskTier: "Low" },
-  { id: "15", name: "Le Kram Import/Export", sector: "Trade", turnover: "300,000 TND", cnssRatio: "50%", finScore: 450, riskTier: "High" },
+  { id: "1", name: "TechMakers Tunis", sector: "Technology", governorate: "Tunis", identifiantRne: "12345/A", financialGrade: "Grade A", finScore: 780, riskTier: "Low", cnssRatio: "98%", contactUnlocked: false },
+  { id: "2", name: "AgriSud Sfax", sector: "Agriculture", governorate: "Sfax", identifiantRne: "67890/B", financialGrade: "Grade B", finScore: 610, riskTier: "Medium", cnssRatio: "85%", contactUnlocked: false },
+  { id: "3", name: "Carthage Logistics", sector: "Transport", governorate: "Ariana", identifiantRne: "44421/C", financialGrade: "Grade A", finScore: 710, riskTier: "Low", cnssRatio: "92%", contactUnlocked: false },
+  { id: "4", name: "MedTex Bizerte", sector: "Textile", governorate: "Bizerte", identifiantRne: "55512/D", financialGrade: "Grade C", finScore: 480, riskTier: "High", cnssRatio: "60%", contactUnlocked: false },
 ];
 
 interface SME {
   id: string;
   name: string;
   sector: string;
-  turnover: string;
-  cnssRatio: string;
+  governorate: string;
+  identifiantRne: string;
+  financialGrade: string;
   finScore: number;
   riskTier: string;
+  cnssRatio?: string;
+  contactUnlocked: boolean;
+  contactEmail?: string;
+  contactPhone?: string;
 }
 
 export default function MarketplacePage() {
@@ -38,41 +33,104 @@ export default function MarketplacePage() {
   const [smeData, setSmeData] = useState<SME[]>(MOCK_SMES);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState<"live" | "mock">("mock");
+  
+  // Lead Generation Modal State
+  const [selectedSme, setSelectedSme] = useState<SME | null>(null);
+  const [similarSmes, setSimilarSmes] = useState<SME[]>([]);
+  const [isUnlocking, setIsUnlocking] = useState(false);
 
   useEffect(() => {
-    const fetchMarketplace = async () => {
-      try {
-        const res = await apiClient.get("/marketplace/browse");
-        const listings = res.data.listings;
-        
-        if (listings && listings.length > 0) {
-          const mapped: SME[] = listings.map((item: any, index: number) => ({
-            id: item.profile_id || String(index + 1),
-            name: item.company_name || "Unknown SME",
-            sector: item.sector || "N/A",
-            turnover: "N/A",
-            cnssRatio: "N/A",
-            finScore: item.latest_fin_score ?? 0,
-            riskTier: item.latest_risk_tier ?? "N/A",
-          }));
-          setSmeData(mapped);
-          setDataSource("live");
-        }
-        // If listings is empty, keep mock data
-      } catch (err) {
-        console.warn("Marketplace API unavailable, using demo data.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchMarketplace();
   }, []);
+
+  const fetchMarketplace = async () => {
+    try {
+      const res = await apiClient.get("/marketplace/browse");
+      const listings = res.data.listings;
+      
+      if (listings && listings.length > 0) {
+        const mapped: SME[] = listings.map((item: any, index: number) => ({
+          id: item.profile_id || String(index + 1),
+          name: item.company_name || "Unknown SME",
+          sector: item.sector || "N/A",
+          governorate: item.governorate || "N/A",
+          identifiantRne: item.identifiant_unique_rne || `N/A-${index}`,
+          financialGrade: item.financial_grade || "Grade Unknown",
+          finScore: item.latest_fin_score ?? 0,
+          riskTier: item.latest_risk_tier ?? "N/A",
+          contactUnlocked: item.contact_unlocked || false,
+        }));
+        setSmeData(mapped);
+        setDataSource("live");
+      }
+    } catch (err) {
+      console.warn("Marketplace API unavailable, using demo data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSmeClick = async (sme: SME) => {
+    setSelectedSme(sme);
+    setSimilarSmes([]); // Reset similar
+    if (dataSource === "live") {
+      try {
+        const res = await apiClient.get(`/marketplace/${sme.id}/similar`);
+        const listings = res.data.listings;
+        if (listings) {
+          setSimilarSmes(listings.map((item: any) => ({
+            id: item.profile_id,
+            name: item.company_name,
+            sector: item.sector,
+            governorate: item.governorate,
+            identifiantRne: item.identifiant_unique_rne,
+            financialGrade: item.financial_grade,
+            finScore: item.latest_fin_score ?? 0,
+            riskTier: item.latest_risk_tier ?? "N/A",
+            contactUnlocked: false,
+          })));
+        }
+      } catch (err) {
+        console.warn("Failed to load similar SMEs");
+      }
+    }
+  };
+
+  const unlockContact = async () => {
+    if (!selectedSme) return;
+    setIsUnlocking(true);
+    
+    try {
+      // If we are on mock data, simulate network delay
+      if (dataSource === "mock") {
+        await new Promise(r => setTimeout(r, 1000));
+        setSelectedSme({
+          ...selectedSme, 
+          contactUnlocked: true,
+          contactEmail: `contact@${selectedSme.name.toLowerCase().replace(/\s+/g,'')}.tn`,
+          contactPhone: "+216 71 123 456"
+        });
+      } else {
+        const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
+        setSelectedSme({
+          ...selectedSme,
+          contactUnlocked: true,
+          contactEmail: res.data.contact_email,
+          contactPhone: res.data.contact_phone
+        });
+      }
+    } catch (e) {
+      console.error("Unlock failed", e);
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   const filteredData = smeData.filter(
     (sme) =>
       sme.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sme.sector.toLowerCase().includes(searchTerm.toLowerCase())
+      sme.sector.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      sme.governorate.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getTierIcon = (tier: string) => {
@@ -91,13 +149,6 @@ export default function MarketplacePage() {
     return "text-gray-400 bg-gray-400/10 border-gray-400/20";
   };
 
-  const getScoreColor = (tier: string) => {
-    if (tier.toLowerCase().includes("low")) return "text-teal-400";
-    if (tier.toLowerCase().includes("medium")) return "text-yellow-400";
-    if (tier.toLowerCase().includes("high")) return "text-red-400";
-    return "text-gray-400";
-  };
-
   return (
     <div className="pt-32 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-1/3 left-1/3 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] -z-10"></div>
@@ -107,12 +158,12 @@ export default function MarketplacePage() {
           <div>
             <h1 className="text-4xl font-bold mb-2">Investor Marketplace</h1>
             <p className="text-gray-400">
-              Discover and evaluate vetted Tunisian SMEs seeking capital.
+              Discover and evaluate vetted Tunisian SMEs. Contact profiles are gated by subscription.
               {dataSource === "mock" && !isLoading && (
                 <span className="ml-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Demo Data</span>
               )}
               {dataSource === "live" && (
-                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Live Data</span>
+                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Live Profiles</span>
               )}
             </p>
           </div>
@@ -120,7 +171,7 @@ export default function MarketplacePage() {
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by company or sector..."
+              placeholder="Search by company, sector, or governorate..."
               className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all text-white outline-none" />
           </div>
         </div>
@@ -136,11 +187,10 @@ export default function MarketplacePage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/5">
-                    <th className="px-6 py-5 text-sm font-bold text-gray-300 uppercase tracking-wider">Company Profile</th>
-                    <th className="px-6 py-5 text-sm font-bold text-gray-300 uppercase tracking-wider">Sector</th>
-                    <th className="px-6 py-5 text-sm font-bold text-gray-300 uppercase tracking-wider">Turnover</th>
-                    <th className="px-6 py-5 text-sm font-bold text-gray-300 uppercase tracking-wider">CNSS Ratio</th>
-                    <th className="px-6 py-5 text-sm font-bold text-gray-300 uppercase tracking-wider text-right">FinScore Status</th>
+                    <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Company Profile</th>
+                    <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Demographics</th>
+                    <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Financial Risk Grade</th>
+                    <th className="px-6 py-5 text-xs font-bold text-gray-400 uppercase tracking-wider text-right">Computed FinScore</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -148,22 +198,36 @@ export default function MarketplacePage() {
                     filteredData.map((sme, index) => (
                       <motion.tr key={sme.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: index * 0.03 }}
-                        className="hover:bg-white/5 transition-colors group cursor-pointer">
+                        onClick={() => handleSmeClick(sme)}
+                        className="hover:bg-white/10 transition-colors group cursor-pointer">
                         <td className="px-6 py-5">
-                          <div className="font-bold text-white group-hover:text-indigo-400 transition-colors">{sme.name}</div>
-                          <div className="text-xs text-gray-500 mt-1 font-mono">ID: {sme.id.toString().padStart(5, '0')}</div>
+                          <div className="font-bold text-white group-hover:text-indigo-400 transition-colors flex items-center">
+                            {sme.name} <ExternalLink className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1 font-mono">ID RNE: {sme.identifiantRne}</div>
                         </td>
                         <td className="px-6 py-5">
-                          <span className="px-3 py-1 bg-white/5 text-gray-300 text-xs rounded-full border border-white/10">{sme.sector}</span>
+                          <div className="flex flex-col gap-1.5">
+                            <span className="flex items-center text-xs text-gray-300"><Building className="w-3 h-3 mr-1.5 text-gray-500" /> {sme.sector}</span>
+                            <span className="flex items-center text-xs text-gray-400"><MapPin className="w-3 h-3 mr-1.5 text-gray-500" /> {sme.governorate}</span>
+                          </div>
                         </td>
-                        <td className="px-6 py-5 text-gray-300 font-mono text-sm">{sme.turnover}</td>
-                        <td className="px-6 py-5 text-gray-300 font-mono text-sm">{sme.cnssRatio}</td>
+                        <td className="px-6 py-5">
+                          <span className={`px-3 py-1.5 font-bold text-xs rounded-full border 
+                            ${sme.financialGrade === 'Grade A' ? 'bg-teal-500/10 text-teal-400 border-teal-500/20' : 
+                              sme.financialGrade === 'Grade B' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' : 
+                              'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'}`}>
+                            {sme.financialGrade || "Masked"}
+                          </span>
+                        </td>
                         <td className="px-6 py-5 text-right">
                           <div className="flex flex-col items-end gap-2">
-                            <span className={`text-xl font-bold ${getScoreColor(sme.riskTier)}`}>{sme.finScore}</span>
-                            <div className={`inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-full border ${getTierColor(sme.riskTier)}`}>
+                            <span className={`text-2xl font-black ${sme.riskTier.includes("Low") ? "text-teal-400" : sme.riskTier.includes("Medium") ? "text-yellow-400" : "text-red-400"}`}>
+                              {sme.finScore}
+                            </span>
+                            <div className={`inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded-full border ${getTierColor(sme.riskTier)}`}>
                               {getTierIcon(sme.riskTier)}
-                              {sme.riskTier.includes("Risk") ? sme.riskTier : `${sme.riskTier} Risk`}
+                              {sme.riskTier.replace("Risk", "")}
                             </div>
                           </div>
                         </td>
@@ -171,11 +235,11 @@ export default function MarketplacePage() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-6 py-16 text-center">
+                      <td colSpan={4} className="px-6 py-16 text-center">
                         <div className="flex flex-col items-center justify-center text-gray-500">
                           <Filter className="w-12 h-12 mb-4 opacity-50" />
-                          <p className="text-lg font-medium text-gray-400 mb-1">No SMEs found</p>
-                          <p className="text-sm">Try adjusting your search filters.</p>
+                          <p className="text-lg font-medium text-gray-400 mb-1">No Public Profiles Found</p>
+                          <p className="text-sm">Try adjusting your filters or governorate.</p>
                         </div>
                       </td>
                     </tr>
@@ -186,6 +250,112 @@ export default function MarketplacePage() {
           </motion.div>
         )}
       </div>
+
+      {/* LEAD GENERATION MODAL */}
+      <AnimatePresence>
+        {selectedSme && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setSelectedSme(null)} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+            
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-3xl bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              
+              <div className="p-8 border-b border-white/10 bg-white/5 relative">
+                <button onClick={() => setSelectedSme(null)} className="absolute top-6 right-6 text-gray-400 hover:text-white">✕</button>
+                <h2 className="text-3xl font-bold text-white mb-2">{selectedSme.name}</h2>
+                <div className="flex gap-4 text-sm text-gray-400">
+                  <span className="flex items-center"><MapPin className="w-4 h-4 mr-1 text-indigo-400" /> {selectedSme.governorate}</span>
+                  <span className="flex items-center"><Building className="w-4 h-4 mr-1 text-indigo-400" /> {selectedSme.sector}</span>
+                  <span className="font-mono bg-black/30 px-2 py-0.5 rounded border border-white/5">RNE: {selectedSme.identifiantRne}</span>
+                </div>
+              </div>
+
+              <div className="p-8 overflow-y-auto space-y-8">
+                {/* Score & Tier Header */}
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+                    <div className="text-xs text-gray-400 uppercase tracking-widest mb-2 font-bold">Latest FinScore</div>
+                    <div className={`text-6xl font-black ${selectedSme.riskTier.includes("Low") ? "text-teal-400" : selectedSme.riskTier.includes("Medium") ? "text-yellow-400" : "text-red-400"}`}>
+                      {selectedSme.finScore}
+                    </div>
+                  </div>
+                  <div className="flex-1 bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col justify-center">
+                    <div className="text-xs text-gray-400 uppercase tracking-widest mb-4 font-bold">Risk Abstractions</div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400">Financial Grade</span>
+                        <span className="font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">{selectedSme.financialGrade}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm border-t border-white/5 pt-3">
+                        <span className="text-gray-400">Risk Severity</span>
+                        <div className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded border ${getTierColor(selectedSme.riskTier)}`}>
+                          {selectedSme.riskTier}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lead Gen Call to Action */}
+                <div className={`rounded-2xl border p-6 flex flex-col items-center justify-center text-center transition-all
+                  ${selectedSme.contactUnlocked ? 'bg-teal-500/10 border-teal-500/30' : 'bg-gradient-to-b from-indigo-900/30 to-black/50 border-indigo-500/20'}`}>
+                  {selectedSme.contactUnlocked ? (
+                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full">
+                      <div className="inline-flex bg-teal-500/20 text-teal-400 p-3 rounded-full mb-4">
+                        <Unlock className="w-8 h-8" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-6">Contact Information Unlocked</h3>
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <a href={`mailto:${selectedSme.contactEmail}`} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
+                          <Mail className="w-5 h-5 mr-3 text-teal-400" /> 
+                          <span className="font-mono text-gray-300">{selectedSme.contactEmail}</span>
+                        </a>
+                        <a href={`tel:${selectedSme.contactPhone?.replace(/\s+/g,'')}`} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
+                          <Phone className="w-5 h-5 mr-3 text-teal-400" /> 
+                          <span className="font-mono text-gray-300">{selectedSme.contactPhone}</span>
+                        </a>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <>
+                      <div className="inline-flex bg-white/5 text-gray-400 p-3 rounded-full mb-4">
+                        <Lock className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-lg font-bold text-white mb-2">Unlock Direct Contact</h3>
+                      <p className="text-sm text-gray-400 mb-6 max-w-sm">Use a Lead Credit to unlock phone & email data for {selectedSme.name}.</p>
+                      <button onClick={unlockContact} disabled={isUnlocking}
+                        className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center transition-all disabled:opacity-50">
+                        {isUnlocking ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Unlock className="w-5 h-5 mr-2" />}
+                        Unlock for 1 Credit
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Similar Recommendations */}
+                {similarSmes.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4">Similar Opportunities in {selectedSme.governorate}</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {similarSmes.map(sim => (
+                        <div key={sim.id} onClick={() => handleSmeClick(sim)}
+                          className="p-4 bg-white/5 border border-white/5 rounded-xl cursor-pointer hover:bg-white/10 hover:border-white/20 transition-all">
+                          <div className="font-bold text-sm text-white mb-1">{sim.name}</div>
+                          <div className="flex items-center justify-between mt-3">
+                            <span className="text-xs text-gray-500 font-mono">{sim.sector}</span>
+                            <span className={`text-sm font-bold ${getScoreColor(sim.riskTier)}`}>{sim.finScore}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

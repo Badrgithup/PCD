@@ -62,9 +62,15 @@ class PMEProfile(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     company_name = Column(String(255), nullable=False)
-    rne_code = Column(String(50), nullable=True)
+    identifiant_unique_rne = Column(String(100), nullable=True, unique=True, index=True)
     sector = Column(String(100), nullable=True)
-    is_public_for_marketplace = Column(Boolean, default=False)
+    governorate = Column(String(100), nullable=True)
+    
+    visibility_status = Column(String(50), default="Private")  # Private or Public
+    marketplace_status = Column(Integer, default=0)            # 0: Draft, 1: Published, 2: Featured
+    contact_email = Column(String(255), nullable=True)
+    contact_phone = Column(String(50), nullable=True)
+    
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -124,6 +130,10 @@ class ScoreReport(Base):
     decision = Column(String(100), nullable=True)
     decision_explanation = Column(Text, nullable=True)
     shap_explanations_json = Column(Text, nullable=True)  # JSON string of strengths/weaknesses
+    
+    # Persisted calculated indices for traffic-light reporting UI
+    cnss_score_grade = Column(String(20), nullable=True)     # High Compliance, Minor Issues, High Risk
+    op_integrity_index = Column(String(20), nullable=True)   # Derived from RNE/STEG metrics
 
     model1_probability = Column(Float, nullable=True)
     model2_probability = Column(Float, nullable=True)

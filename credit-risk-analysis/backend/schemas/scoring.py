@@ -64,3 +64,5 @@ class ScoreResponse(BaseModel):
     weaknesses: list[ShapFeatureDetail]
     is_simulation: bool = Field(default=False, description="True if this is a what-if simulation")
     report_id: str | None = Field(default=None, description="DB report ID (null for simulations)")
+    cnss_score_grade: str | None = Field(default=None, description="Traffic light grade for CNSS")
+    op_integrity_index: str | None = Field(default=None, description="Traffic light grade for Integrity")

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Calculator, ShieldCheck, Zap, Activity, AlertTriangle, TrendingUp, HelpCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import apiClient from "@/lib/api/axios";
+import { useEffect } from "react";
 
 interface ScoreResult {
   score: number;
@@ -14,6 +15,8 @@ interface ScoreResult {
   probabilities: { model1_financial: number; model2_behavioral: number; stacked_final: number };
   strengths: { feature: string; value: number; shap_value: number; description: string }[];
   weaknesses: { feature: string; value: number; shap_value: number; description: string }[];
+  cnss_score_grade?: string;
+  op_integrity_index?: string;
 }
 
 export default function PMEDashboardPage() {
@@ -21,6 +24,12 @@ export default function PMEDashboardPage() {
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ScoreResult | null>(null);
+  
+  // Visibility States
+  const [visibility, setVisibility] = useState<string>("Private");
+  const [marketplaceStatus, setMarketplaceStatus] = useState<number>(0);
+  const [isToggling, setIsToggling] = useState(false);
+  const [toggleFeedback, setToggleFeedback] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     business_turnover_tnd: "",
@@ -39,6 +48,48 @@ export default function PMEDashboardPage() {
     type_of_business: "Services",
   });
 
+  // True Backend Data Persistence Instead of Local Storage
+  useEffect(() => {
+    const fetchLatestData = async () => {
+      try {
+        const res = await apiClient.get("/scoring/latest");
+        if (res.data) {
+          setFormData({
+            business_turnover_tnd: res.data.business_turnover_tnd.toString(),
+            business_expenses_tnd: res.data.business_expenses_tnd.toString(),
+            nbr_of_workers: res.data.nbr_of_workers.toString(),
+            workers_verified_cnss: res.data.workers_verified_cnss.toString(),
+            business_age_years: res.data.business_age_years.toString(),
+            number_of_owners: res.data.number_of_owners.toString(),
+            compliance_rne_score: res.data.compliance_rne_score,
+            steg_sonede_score: res.data.steg_sonede_score,
+            banking_maturity_score: res.data.banking_maturity_score,
+            followers_fcb: res.data.followers_fcb.toString(),
+            followers_insta: res.data.followers_insta.toString(),
+            followers_linkedin: res.data.followers_linkedin.toString(),
+            posts_per_month: res.data.posts_per_month.toString(),
+            type_of_business: res.data.type_of_business,
+          });
+        }
+      } catch (err) {
+        console.log("No previous data found or error fetching latest data");
+      }
+    };
+    
+    const fetchVisibility = async () => {
+      try {
+        const res = await apiClient.get("/marketplace/me");
+        if (res.data) {
+          setVisibility(res.data.visibility_status);
+          setMarketplaceStatus(res.data.marketplace_status);
+        }
+      } catch (err) {}
+    }
+
+    fetchLatestData();
+    fetchVisibility();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -53,7 +104,7 @@ export default function PMEDashboardPage() {
       const payload = {
         business_turnover_tnd: turnover,
         business_expenses_tnd: expenses,
-        profit_margin: turnover > 0 ? (turnover - expenses) / turnover : 0,
+        profit_margin: turnover > 0 ? Math.max(-1, Math.min(1, (turnover - expenses) / turnover)) : 0,
         nbr_of_workers: totalWorkers,
         workers_verified_cnss: cnssWorkers,
         formal_worker_ratio: totalWorkers > 0 ? cnssWorkers / totalWorkers : 0,
@@ -73,22 +124,22 @@ export default function PMEDashboardPage() {
       setResult(res.data);
       setShowResult(true);
     } catch (err: any) {
-      console.warn("Backend unreachable, using mock data:", err.message);
-      setResult({
-        score: 745,
-        risk_tier: "Low Risk",
-        decision: "Approved",
-        decision_explanation: "The company shows a highly solid solvability signal across both financial data and behavioral footprint.",
-        probabilities: { model1_financial: 0.82, model2_behavioral: 0.71, stacked_final: 0.78 },
-        strengths: [
-          { feature: "business_turnover_tnd", value: 250000, shap_value: 0.12, description: "Solid revenue base." },
-          { feature: "compliance_rne_score", value: 8, shap_value: 0.08, description: "Strong formal compliance." },
-        ],
-        weaknesses: [
-          { feature: "banking_maturity_score", value: 5, shap_value: -0.04, description: "Banking maturity profile is relatively young." },
-        ],
-      });
-      setShowResult(true);
+      const detail = err?.response?.data?.detail;
+      let msg: string;
+      if (Array.isArray(detail)) {
+        msg = detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ');
+      } else if (typeof detail === 'string') {
+        msg = detail;
+      } else if (err?.response?.status === 401) {
+        msg = "Session expired. Please log out and log in again.";
+      } else if (err?.response?.status === 403) {
+        msg = "Access denied. Only PME accounts can submit financial data.";
+      } else if (err?.response?.status === 404) {
+        msg = "Profile not found. Please log out, register again, then retry.";
+      } else {
+        msg = err?.message || "Unknown error";
+      }
+      setError(`❌ Scoring failed: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -128,14 +179,45 @@ export default function PMEDashboardPage() {
     return null;
   };
 
+  const handleToggleVisibility = async (status: string) => {
+    setIsToggling(true);
+    setToggleFeedback(null);
+    try {
+      const res = await apiClient.put("/marketplace/visibility", { visibility_status: status });
+      if (res.data.success) {
+        setVisibility(res.data.visibility_status);
+        setMarketplaceStatus(res.data.marketplace_status);
+        if (status === "Public") {
+          setToggleFeedback(`✅ PME ${res.data.rne_id} is now LIVE on the Tunisian Marketplace.`);
+        } else {
+          setToggleFeedback("Locked. Profile is now hidden from the marketplace.");
+        }
+        setTimeout(() => setToggleFeedback(null), 5000);
+      }
+    } catch (e) {
+      console.warn("Failed to toggle visibility");
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[150px] -z-10"></div>
       
       <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Comprehensive AI Assessment</h1>
-          <p className="text-gray-400">Our machine learning models use both traditional financial parameters and behavioral web-footprints to generate your actual score.</p>
+        <div className="mb-8 flex justify-between items-end">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Comprehensive AI Assessment</h1>
+            <p className="text-gray-400">Our machine learning models use both traditional financial parameters and behavioral web-footprints.</p>
+          </div>
+          
+          <div className="flex items-center space-x-2 bg-slate-900 border border-white/10 px-4 py-2 rounded-xl text-sm whitespace-nowrap hidden md:flex">
+             {visibility === "Public" ? <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></span> : <span className="w-2 h-2 rounded-full bg-gray-500"></span>}
+             <span className="font-bold text-gray-300">Status: {visibility}</span>
+             <span className="text-gray-500 ml-2">|</span>
+             <span className="text-indigo-400 ml-2 font-mono text-xs">{marketplaceStatus === 1 ? 'Live on Market' : 'Hidden'}</span>
+          </div>
         </div>
 
         <AnimatePresence mode="wait">
@@ -259,7 +341,7 @@ export default function PMEDashboardPage() {
                     {isSubmitting ? (
                       <><Loader2 className="w-6 h-6 animate-spin mr-3" /> Analyzing Complete Feature Stack...</>
                     ) : (
-                      <><Calculator className="w-6 h-6 mr-3" /> Calculate Full Stack FinScore</>
+                      <><Calculator className="w-6 h-6 mr-3" /> 💾 SAVE PREDICTION & CALCULATE FIN-SCORE</>
                     )}
                   </button>
                 </div>
@@ -309,12 +391,42 @@ export default function PMEDashboardPage() {
                 </div>
               </div>
 
-              {/* Enhanced Explanation Box */}
-              <div className="p-8 rounded-3xl bg-gradient-to-br from-indigo-900/40 to-teal-900/20 backdrop-blur border border-indigo-500/30 text-gray-200 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-1 bg-indigo-500 h-full"></div>
-                <h3 className="text-xl font-bold mb-3 flex items-center text-white"><HelpCircle className="w-6 h-6 mr-2 text-indigo-400" /> What this score means for you</h3>
-                <p className="text-lg leading-relaxed">{result.decision_explanation}</p>
-                <p className="mt-4 text-sm text-gray-400">Our machine learning pipeline analyzed your specific financial solvency constraints against your social and behavioral engagement tracking to arrive at this human-readable explanation.</p>
+              {/* Traffic Lights UI */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center shadow-xl">
+                    <span className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-3">CNSS Compliance</span>
+                    <span className="text-2xl font-bold bg-white/5 py-2 px-6 rounded-full border border-white/5 flex items-center justify-center whitespace-nowrap min-w-[250px]">{result.cnss_score_grade || "🟢 High Compliance"}</span>
+                 </div>
+                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center shadow-xl">
+                    <span className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-3">Operational Integrity</span>
+                    <span className="text-2xl font-bold bg-white/5 py-2 px-6 rounded-full border border-white/5 flex items-center justify-center whitespace-nowrap min-w-[250px]">{result.op_integrity_index || "🟢 High Compliance"}</span>
+                 </div>
+              </div>
+
+              {/* Enhanced Explanation Box (Markdown Tables style) */}
+              <div className="p-8 rounded-3xl bg-white/5 backdrop-blur border border-white/10 text-gray-200">
+                <h3 className="text-xl font-bold mb-6 flex items-center text-white"><HelpCircle className="w-6 h-6 mr-2 text-indigo-400" /> Executive Summary & Model Insight</h3>
+                <p className="text-lg leading-relaxed mb-8">{result.decision_explanation}</p>
+                
+                <h4 className="font-bold text-gray-300 uppercase tracking-wider text-sm mb-4">Positive Influences (Strengths)</h4>
+                <div className="overflow-x-auto mb-8 bg-black/20 rounded-xl border border-white/5">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead><tr className="border-b border-white/10 text-teal-400 bg-teal-500/5"><th className="py-3 px-4">Feature Segment</th><th className="py-3 px-4">Detected Value</th><th className="py-3 px-4">AI Interpretation</th></tr></thead>
+                    <tbody className="divide-y divide-white/5">
+                      {result.strengths?.map(s => <tr key={s.feature} className="hover:bg-white/5"><td className="py-3 px-4 font-mono text-gray-400">{s.feature}</td><td className="py-3 px-4 font-bold">{s.value}</td><td className="py-3 px-4">{s.description}</td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
+
+                <h4 className="font-bold text-gray-300 uppercase tracking-wider text-sm mb-4">Risk Factors (Weaknesses)</h4>
+                <div className="overflow-x-auto bg-black/20 rounded-xl border border-white/5">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead><tr className="border-b border-white/10 text-red-400 bg-red-500/5"><th className="py-3 px-4">Feature Segment</th><th className="py-3 px-4">Detected Value</th><th className="py-3 px-4">AI Interpretation</th></tr></thead>
+                    <tbody className="divide-y divide-white/5">
+                      {result.weaknesses?.map(w => <tr key={w.feature} className="hover:bg-white/5"><td className="py-3 px-4 font-mono text-gray-400">{w.feature}</td><td className="py-3 px-4 font-bold">{w.value}</td><td className="py-3 px-4">{w.description}</td></tr>)}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* SHAP Chart */}
@@ -347,12 +459,38 @@ export default function PMEDashboardPage() {
                 </div>
               )}
               
-              <div className="flex justify-center mt-6">
-                <button onClick={() => { setShowResult(false); setResult(null); }}
-                  className="px-8 py-4 rounded-xl border border-white/20 hover:bg-white/10 transition-all text-sm font-bold active:scale-95 text-white shadow-lg">
-                  Start New Assessment
-                </button>
+              {/* Marketplace Triggers */}
+              <div className="p-8 rounded-3xl bg-slate-900 border border-t-indigo-500/30 border-white/10 mt-10 shadow-2xl flex flex-col items-center">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-white">Marketplace Visibility Controls</h3>
+                  <p className="text-gray-400 mt-2">Current Status: {visibility === 'Public' ? '🌐' : '🔒'} {visibility} | Marketplace: <span className="font-mono text-indigo-400">{marketplaceStatus === 1 ? 'Published' : 'Hidden'}</span></p>
+                  
+                  {toggleFeedback && (
+                    <div className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/30 text-teal-400 rounded-lg text-sm font-bold animate-pulse">
+                      {toggleFeedback}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4 w-full justify-center">
+                  <button onClick={() => { setShowResult(false); setResult(null); }} className="px-6 py-4 rounded-xl border border-white/20 hover:bg-white/10 transition-all text-sm font-bold text-white shadow-lg flex-1 max-w-[250px]">
+                    💾 EDIT PREDICTION
+                  </button>
+                  
+                  {visibility !== "Public" ? (
+                    <button onClick={() => handleToggleVisibility("Public")} disabled={isToggling}
+                      className="px-6 py-4 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-900 transition-all text-sm font-bold shadow-lg flex-1 max-w-[250px] flex items-center justify-center disabled:opacity-50">
+                      {isToggling ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "🌐 PUBLISH TO MARKETPLACE"}
+                    </button>
+                  ) : (
+                    <button onClick={() => handleToggleVisibility("Private")} disabled={isToggling}
+                      className="px-6 py-4 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all text-sm font-bold shadow-lg flex-1 max-w-[250px] flex items-center justify-center disabled:opacity-50">
+                      {isToggling ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : "🔒 HIDE FROM MARKETPLACE"}
+                    </button>
+                  )}
+                </div>
               </div>
+
             </motion.div>
           )}
         </AnimatePresence>

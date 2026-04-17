@@ -17,6 +17,9 @@ export default function RegisterPage() {
     password: "",
     role: "PME",
     company_name: "",
+    identifiant_unique_rne: "",
+    governorate: "Tunis",
+    sector: "Technology",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +127,48 @@ export default function RegisterPage() {
                 className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-white outline-none mb-4"
                 placeholder="TechCorp SME"
               />
+              
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">ID RNE</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.identifiant_unique_rne}
+                    onChange={(e) => setFormData({ ...formData, identifiant_unique_rne: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 transition-all text-white outline-none"
+                    placeholder="12345/A"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Governorate</label>
+                  <select
+                    value={formData.governorate}
+                    onChange={(e) => setFormData({ ...formData, governorate: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 transition-all text-white outline-none [&>option]:bg-slate-900"
+                  >
+                    <option value="Tunis">Tunis</option>
+                    <option value="Sfax">Sfax</option>
+                    <option value="Sousse">Sousse</option>
+                    <option value="Ariana">Ariana</option>
+                    <option value="Bizerte">Bizerte</option>
+                    <option value="Nabeul">Nabeul</option>
+                  </select>
+                </div>
+              </div>
+
+              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Business Sector</label>
+              <select
+                value={formData.sector}
+                onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 transition-all text-white outline-none mb-4 [&>option]:bg-slate-900"
+              >
+                <option value="Technology">Technology / IT</option>
+                <option value="Agriculture">Agriculture</option>
+                <option value="Services">Services</option>
+                <option value="Textile">Textile</option>
+                <option value="Construction">Construction</option>
+              </select>
             </motion.div>
           )}
 

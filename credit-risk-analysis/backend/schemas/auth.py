@@ -11,8 +11,9 @@ class UserRegister(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     role: str = Field(default="PME", pattern="^(PME|BANK)$")  # PME or BANK
     company_name: str | None = Field(default=None, max_length=255)
-    rne_code: str | None = Field(default=None, max_length=50)
+    identifiant_unique_rne: str | None = Field(default=None, max_length=100)
     sector: str | None = Field(default=None, max_length=100)
+    governorate: str | None = Field(default=None, max_length=100)
 
 
 class UserLogin(BaseModel):

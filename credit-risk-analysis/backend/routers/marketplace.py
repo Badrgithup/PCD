@@ -5,11 +5,48 @@ Marketplace router: browse public PME profiles with their latest scores.
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from pydantic import BaseModel
 from core.database import get_db
-from models.orm import PMEProfile, ScoreReport
+from core.security import get_current_user
+from models.orm import PMEProfile, ScoreReport, User, UserRole
 from schemas.marketplace import MarketplaceBrowseResponse, MarketplaceListing
 
 router = APIRouter()
+
+class VisibilityToggle(BaseModel):
+    visibility_status: str
+
+@router.get("/me")
+def get_my_marketplace_status(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Fetch the authenticated user's current marketplace parameters."""
+    profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
+    if not profile:
+        return {"error": "No profile found"}
+    return {
+        "visibility_status": profile.visibility_status,
+        "marketplace_status": profile.marketplace_status
+    }
+
+@router.put("/visibility")
+def toggle_visibility(payload: VisibilityToggle, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Toggle public visibility for the PME."""
+    profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
+    if not profile:
+        return {"error": "No profile found"}
+        
+    profile.visibility_status = payload.visibility_status
+    profile.marketplace_status = 1 if payload.visibility_status == "Public" else 0
+    # Atomic Commit Fixed Rule:
+    db.commit()
+    db.refresh(profile)
+    
+    return {
+        "success": True,
+        "visibility_status": profile.visibility_status,
+        "marketplace_status": profile.marketplace_status,
+        "profile_id": str(profile.id),
+        "rne_id": profile.identifiant_unique_rne or str(profile.id)[:8]
+    }
 
 
 @router.get("/browse", response_model=MarketplaceBrowseResponse)
@@ -24,7 +61,7 @@ def browse_marketplace(
     Returns company info along with their latest FinScore.
     Available to all users (investors / banks).
     """
-    query = db.query(PMEProfile).filter(PMEProfile.is_public_for_marketplace == True)  # noqa: E712
+    query = db.query(PMEProfile).filter(PMEProfile.visibility_status == "Public").order_by(PMEProfile.marketplace_status.desc())
 
     if sector:
         query = query.filter(PMEProfile.sector == sector)
@@ -42,15 +79,80 @@ def browse_marketplace(
             .first()
         )
 
+        # Calculate an abstracted financial grade from the score (simulation logic)
+        fin_grade = "Grade C"
+        if latest_report:
+            if latest_report.fin_score >= 700:
+                fin_grade = "Grade A"
+            elif latest_report.fin_score >= 500:
+                fin_grade = "Grade B"
+
         listings.append(
             MarketplaceListing(
                 company_name=profile.company_name,
                 sector=profile.sector,
-                rne_code=profile.rne_code,
+                governorate=profile.governorate,
+                identifiant_unique_rne=profile.identifiant_unique_rne,
+                marketplace_status=profile.marketplace_status,
+                financial_grade=fin_grade,
                 latest_fin_score=latest_report.fin_score if latest_report else None,
                 latest_risk_tier=latest_report.risk_tier if latest_report else None,
+                contact_unlocked=False,
                 profile_id=str(profile.id),
             )
         )
 
     return MarketplaceBrowseResponse(total=total, listings=listings)
+
+
+@router.get("/{profile_id}/similar", response_model=MarketplaceBrowseResponse)
+def get_similar_profiles(profile_id: str, db: Session = Depends(get_db)):
+    """Suggests similar profiles based on Governorate and Sector."""
+    target = db.query(PMEProfile).filter(PMEProfile.id == profile_id).first()
+    if not target:
+        return MarketplaceBrowseResponse(total=0, listings=[])
+        
+    query = db.query(PMEProfile).filter(
+        PMEProfile.visibility_status == "Public",
+        PMEProfile.id != profile_id,
+        (PMEProfile.governorate == target.governorate) | (PMEProfile.sector == target.sector)
+    ).limit(5)
+    
+    profiles = query.all()
+    listings = []
+    
+    for profile in profiles:
+        latest_report = db.query(ScoreReport).filter(ScoreReport.pme_profile_id == profile.id).order_by(ScoreReport.created_at.desc()).first()
+        fin_grade = "Grade A" if latest_report and latest_report.fin_score >= 700 else ("Grade B" if latest_report and latest_report.fin_score >= 500 else "Grade C")
+        
+        listings.append(
+            MarketplaceListing(
+                company_name=profile.company_name,
+                sector=profile.sector,
+                governorate=profile.governorate,
+                identifiant_unique_rne=profile.identifiant_unique_rne,
+                marketplace_status=profile.marketplace_status,
+                financial_grade=fin_grade,
+                latest_fin_score=latest_report.fin_score if latest_report else None,
+                latest_risk_tier=latest_report.risk_tier if latest_report else None,
+                contact_unlocked=False,
+                profile_id=str(profile.id),
+            )
+        )
+        
+    return MarketplaceBrowseResponse(total=len(listings), listings=listings)
+
+
+@router.post("/{profile_id}/unlock_contact")
+def unlock_contact(profile_id: str, db: Session = Depends(get_db)):
+    """Simulates a subscription unlock for the contact info."""
+    profile = db.query(PMEProfile).filter(PMEProfile.id == profile_id).first()
+    if not profile:
+        return {"error": "Profile not found"}
+        
+    return {
+        "success": True,
+        "contact_email": profile.contact_email or "contact@company.tn",
+        "contact_phone": profile.contact_phone or "+216 71 000 000",
+        "message": "Contact information unlocked from subscription tier."
+    }

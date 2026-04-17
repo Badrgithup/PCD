@@ -80,6 +80,13 @@ def predict_score(
     db.add(fin_data)
     db.flush()
 
+    # Calculate traffic-light grades for persistence
+    cnss_ratio = payload.formal_worker_ratio if payload.formal_worker_ratio else 0
+    cnss_grade = "🟢 High Compliance" if cnss_ratio > 0.8 else ("🟡 Minor Issues" if cnss_ratio >= 0.5 else "🔴 High Risk")
+    
+    op_avg = ((payload.compliance_rne_score or 5) + (payload.steg_sonede_score or 5)) / 2
+    op_grade = "🟢 High Compliance" if op_avg >= 8 else ("🟡 Minor Issues" if op_avg >= 5 else "🔴 High Risk")
+
     # Save ScoreReport
     report = ScoreReport(
         financial_data_id=fin_data.id,
@@ -92,6 +99,8 @@ def predict_score(
         model1_probability=result["probabilities"]["model1_financial"],
         model2_probability=result["probabilities"]["model2_behavioral"],
         stacked_probability=result["probabilities"]["stacked_final"],
+        cnss_score_grade=cnss_grade,
+        op_integrity_index=op_grade,
     )
     db.add(report)
     db.commit()
@@ -107,6 +116,8 @@ def predict_score(
         weaknesses=result["weaknesses"],
         is_simulation=False,
         report_id=str(report.id),
+        cnss_score_grade=cnss_grade,
+        op_integrity_index=op_grade,
     )
 
 
@@ -129,6 +140,12 @@ def what_if_simulation(
     features = _features_dict(payload)
     result = model_loader.predict(features)
 
+    # Mock calculation for simulations
+    cnss_ratio = payload.formal_worker_ratio if payload.formal_worker_ratio else 0
+    cnss_grade = "🟢 High Compliance" if cnss_ratio > 0.8 else ("🟡 Minor Issues" if cnss_ratio >= 0.5 else "🔴 High Risk")
+    op_avg = ((payload.compliance_rne_score or 5) + (payload.steg_sonede_score or 5)) / 2
+    op_grade = "🟢 High Compliance" if op_avg >= 8 else ("🟡 Minor Issues" if op_avg >= 5 else "🔴 High Risk")
+
     return ScoreResponse(
         score=result["score"],
         risk_tier=result["risk_tier"],
@@ -139,4 +156,56 @@ def what_if_simulation(
         weaknesses=result["weaknesses"],
         is_simulation=True,
         report_id=None,
+        cnss_score_grade=cnss_grade,
+        op_integrity_index=op_grade,
+    )
+
+
+@router.get("/latest", response_model=FinancialInput)
+def get_latest_financial_data(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch the most recent financial data for the authenticated PME user
+    to automatically populate their dashboard forms instead of asking twice.
+    """
+    if current_user.role != UserRole.PME:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only PME users have financial data profiles",
+        )
+
+    profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
+    if not profile:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Profile not found")
+
+    latest_data = (
+        db.query(FinancialData)
+        .filter(FinancialData.pme_profile_id == profile.id)
+        .order_by(FinancialData.created_at.desc())
+        .first()
+    )
+
+    if not latest_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No financial data found")
+
+    return FinancialInput(
+        company_name=profile.company_name,
+        type_of_business=latest_data.type_of_business or "Services",
+        business_turnover_tnd=latest_data.business_turnover_tnd,
+        business_expenses_tnd=latest_data.business_expenses_tnd,
+        profit_margin=latest_data.profit_margin,
+        nbr_of_workers=latest_data.nbr_of_workers,
+        workers_verified_cnss=latest_data.workers_verified_cnss,
+        formal_worker_ratio=latest_data.formal_worker_ratio,
+        business_age_years=latest_data.business_age_years,
+        number_of_owners=latest_data.number_of_owners,
+        compliance_rne_score=latest_data.compliance_rne_score or 5,
+        steg_sonede_score=latest_data.steg_sonede_score or 5,
+        banking_maturity_score=latest_data.banking_maturity_score or 5,
+        followers_fcb=latest_data.followers_fcb,
+        followers_insta=latest_data.followers_insta,
+        followers_linkedin=latest_data.followers_linkedin,
+        posts_per_month=latest_data.posts_per_month,
     )

@@ -39,9 +39,11 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         profile = PMEProfile(
             user_id=user.id,
             company_name=payload.company_name or payload.email.split("@")[0],
-            rne_code=payload.rne_code,
+            identifiant_unique_rne=payload.identifiant_unique_rne,
             sector=payload.sector,
-            is_public_for_marketplace=False,
+            governorate=payload.governorate,
+            visibility_status="Private",
+            marketplace_status=0
         )
         db.add(profile)
 
