@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
+import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink, Heart } from "lucide-react";
 import apiClient from "@/lib/api/axios";
 import { InsufficientCreditsModal, useCreditsRefresh } from "@/components/Navbar";
 import { useAuthStore } from "@/store/authStore";
 import AuthGuard from "@/components/AuthGuard";
+import { useRouter } from "next/navigation";
 
 // ── Clearbit Logo with initial-circle fallback ──────────────────────────────
 function CompanyLogo({ name, website }: { name: string; website?: string }) {
@@ -58,7 +59,14 @@ interface SME {
   contactPhone?: string;
 }
 
+const getScoreColor = (riskTier: string) => {
+  if (riskTier === "Low") return "text-teal-400";
+  if (riskTier === "High") return "text-red-400";
+  return "text-yellow-400";
+};
+
 export default function MarketplacePage() {
+  const router = useRouter();
   const refreshCredits = useCreditsRefresh();
   const { user, updateCredits } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,10 +79,41 @@ export default function MarketplacePage() {
   const [selectedSme, setSelectedSme] = useState<SME | null>(null);
   const [similarSmes, setSimilarSmes] = useState<SME[]>([]);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  const [isWishlisting, setIsWishlisting] = useState(false);
 
   useEffect(() => {
     fetchMarketplace();
+    fetchWishlist();
   }, []);
+
+  const fetchWishlist = async () => {
+    try {
+      const res = await apiClient.get("/wishlist");
+      if (res.data.status === "success") {
+        setWishlistIds(res.data.wishlisted_profile_ids || []);
+      }
+    } catch (err) {
+      console.warn("Failed to load wishlist");
+    }
+  };
+
+  const toggleWishlist = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // prevent modal opening if clicked from table directly (though we put it in modal)
+    setIsWishlisting(true);
+    try {
+      const res = await apiClient.post(`/wishlist/${id}`);
+      if (res.data.action === "added") {
+        setWishlistIds(prev => [...prev, id]);
+      } else {
+        setWishlistIds(prev => prev.filter(wId => wId !== id));
+      }
+    } catch (err) {
+      console.error("Failed to toggle wishlist");
+    } finally {
+      setIsWishlisting(false);
+    }
+  };
 
   const fetchMarketplace = async () => {
     try {
@@ -169,8 +208,8 @@ export default function MarketplacePage() {
       const detail = e?.response?.data?.detail || e?.message;
       console.error("[UNLOCK ERROR] Status:", status, "|", detail);
       if (status === 402) {
-        // TASK 2: Insufficient credits — show modal
-        setShowCreditsModal(true);
+        alert("You are out of credits.");
+        router.push("/pricing");
       } else {
         alert(`Unlock failed: ${detail}`);
       }
@@ -328,7 +367,20 @@ export default function MarketplacePage() {
               
               <div className="p-8 border-b border-white/10 bg-white/5 relative">
                 <button onClick={() => setSelectedSme(null)} className="absolute top-6 right-6 text-gray-400 hover:text-white">✕</button>
-                <h2 className="text-3xl font-bold text-white mb-2">{selectedSme.name}</h2>
+                <div className="flex items-center gap-4 mb-2">
+                  <h2 className="text-3xl font-bold text-white">{selectedSme.name}</h2>
+                  <button 
+                    onClick={(e) => toggleWishlist(selectedSme.id, e)}
+                    disabled={isWishlisting}
+                    className={`p-2 rounded-full border transition-all ${
+                      wishlistIds.includes(selectedSme.id) 
+                        ? "bg-rose-500/10 border-rose-500/30 text-rose-500" 
+                        : "bg-white/5 border-white/10 text-gray-400 hover:text-rose-400 hover:border-rose-400/30"
+                    }`}
+                  >
+                    <Heart className={`w-5 h-5 ${wishlistIds.includes(selectedSme.id) ? "fill-rose-500 text-rose-500" : ""}`} />
+                  </button>
+                </div>
                 <div className="flex gap-4 text-sm text-gray-400">
                   <span className="flex items-center"><MapPin className="w-4 h-4 mr-1 text-indigo-400" /> {selectedSme.governorate}</span>
                   <span className="flex items-center"><Building className="w-4 h-4 mr-1 text-indigo-400" /> {selectedSme.sector}</span>

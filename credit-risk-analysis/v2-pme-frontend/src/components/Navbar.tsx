@@ -48,36 +48,36 @@ export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
 // ── Main Navbar ────────────────────────────────────────────────────────────
 export default function Navbar() {
   const router = useRouter();
-  const { user, isAuthenticated, logout, hydrateAuth } = useAuthStore();
-  const [credits, setCredits] = useState<number | null>(null);
+  const { user, isAuthenticated, logout, hydrateAuth, updateCredits } = useAuthStore();
 
+  // fetchCredits: called by CreditsRefreshContext consumers (e.g. after unlock)
   const fetchCredits = () => {
     if (!isAuthenticated) return;
     apiClient.get("/auth/me")
       .then(res => {
-        setCredits(res.data.credits);
-        console.log("[NAVBAR] Credits refreshed:", res.data.credits);
+        console.log("[NAVBAR] /auth/me credits:", res.data.credits);
+        updateCredits(res.data.credits); // updates store AND localStorage
       })
-      .catch(err => console.warn("[NAVBAR] Could not fetch credits:", err.message));
+      .catch(err => console.warn("[NAVBAR] /auth/me failed:", err.message));
   };
 
   useEffect(() => {
     hydrateAuth();
   }, [hydrateAuth]);
 
+  // On first login, credits come from authStore (seeded at login).
+  // Only call /auth/me when we know user is authenticated but credits might be stale.
   useEffect(() => {
-    if (isAuthenticated) {
-      fetchCredits();
-    } else {
-      setCredits(null);
-    }
+    if (isAuthenticated) fetchCredits();
   }, [isAuthenticated]);
 
   const handleLogout = () => {
     logout();
-    setCredits(null);
     router.push("/login");
   };
+
+  // credits read directly from store — always in sync
+  const credits = user?.credits ?? null;
 
   return (
     <CreditsRefreshContext.Provider value={fetchCredits}>

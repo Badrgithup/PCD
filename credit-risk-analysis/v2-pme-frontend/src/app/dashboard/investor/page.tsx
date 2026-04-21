@@ -228,6 +228,8 @@ export default function InvestorDashboardPage() {
         setEnrichGrokResult(d);
         setEnrichStatus("success");
         console.log("[ENRICH] Success:", d);
+        // TASK 3: Switch back to manual tab upon success
+        setActiveTab("manual");
       } else {
         setEnrichStatus("partial");
       }
@@ -283,22 +285,8 @@ export default function InvestorDashboardPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                           <label className="text-xs font-medium text-gray-300 ml-1">Company Name</label>
-                          <div className="flex gap-2 w-full mt-1">
-                            <input type="text" value={enrichQuery} onChange={(e) => setEnrichQuery(e.target.value)}
-                              className="w-full px-4 py-3 rounded-xl bg-slate-900/50 border border-white/10 focus:border-indigo-500 text-white outline-none" 
-                              placeholder="e.g. Tunis Tech SARL (Type here & click Scrape)" 
-                            />
-                            <button type="button" onClick={handleEnrich} disabled={enrichStatus === "loading"}
-                              className="px-4 py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                              {enrichStatus === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "🪄 Grok/Groq AI Scraping"}
-                            </button>
-                          </div>
-                          {enrichStatus === "success" && (
-                            <p className="text-xs text-teal-400 mt-2 ml-1">✅ Financials auto-filled</p>
-                          )}
-                          {enrichStatus === "partial" && (
-                            <p className="text-xs text-yellow-400 mt-2 ml-1">⚠️ Groq could not extract data</p>
-                          )}
+                          <input type="text" value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                            className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-900/50 border border-white/10 focus:border-indigo-500 text-white outline-none" placeholder="e.g. Tunis Tech SARL" />
                         </div>
                         <div>
                           <label className="text-xs font-medium text-gray-300 ml-1">Type / Sector</label>
@@ -388,40 +376,41 @@ export default function InvestorDashboardPage() {
                       </div>
                     </div>
 
-                    <button type="submit" disabled={isSubmitting}
+                    <button type="submit" disabled={isSubmitting || !formData.company_name || !formData.business_turnover_tnd || !formData.business_expenses_tnd || !formData.business_age_years}
                       className="w-full py-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold text-lg flex items-center justify-center hover:opacity-90 transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] disabled:opacity-50 mt-2">
                       {isSubmitting ? <><Loader2 className="w-6 h-6 animate-spin mr-3" /> Running Full FinScore Analysis...</> : <><Calculator className="w-6 h-6 mr-3" /> Run Full Dual-Model FinScore</>}
                     </button>
                   </form>
                 ) : (
-                  <form onSubmit={handleAutoScrape} className="space-y-6">
-                    <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm flex gap-3 items-start">
-                      <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                      <span>Web scraping module is under development. The simulation will run but results are not yet connected to live data sources.</span>
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-sm flex gap-3 items-start">
+                      <Bot className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                      <span>Groq AI will crawl available data and auto-fill the FinScore assessment form below. Any missing data must be filled manually.</span>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-300 ml-1">Target Company URL / LinkedIn Profile</label>
+                      <label className="text-sm font-medium text-gray-300 ml-1">Target Company Name</label>
                       <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="url" required value={companyUrl} onChange={(e) => setCompanyUrl(e.target.value)}
+                        <input type="text" value={enrichQuery} onChange={(e) => setEnrichQuery(e.target.value)}
                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none"
-                          placeholder="https://linkedin.com/company/tunis-tech" />
+                          placeholder="e.g. Poulina Group" />
                       </div>
-                      <p className="text-xs text-gray-400 mt-2 ml-1">Once activated, our agent will crawl the RNE public registry, LinkedIn, and social platforms to auto-fill the scoring model.</p>
                     </div>
-                    <button type="submit" disabled={isSubmitting}
+                    <button type="button" onClick={handleEnrich} disabled={enrichStatus === "loading"}
                       className="w-full py-4 rounded-xl bg-teal-500 text-slate-950 font-bold flex items-center justify-center hover:bg-teal-400 transition-all disabled:opacity-50 relative overflow-hidden">
-                      {isSubmitting ? (
+                      {enrichStatus === "loading" ? (
                         <div className="flex items-center gap-3 font-mono text-sm">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>{scrapingStep}</span>
+                          <span>Scraping via Groq...</span>
                         </div>
                       ) : (
-                        <><Bot className="mr-2 w-5 h-5" /> Run Web Scraper Agent</>
+                        <><Bot className="mr-2 w-5 h-5" /> Scrape via Groq</>
                       )}
-                      {isSubmitting && <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] -translate-x-full animate-[shimmer_1.5s_infinite]" />}
                     </button>
-                  </form>
+                    {enrichStatus === "partial" && (
+                      <p className="text-red-400 text-sm font-medium text-center">Failed to extract complete data. Missing fields must be filled manually.</p>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>

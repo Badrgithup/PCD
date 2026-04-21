@@ -164,16 +164,22 @@ def unlock_contact(
 ):
     """TASK 2: Deduct 1 credit and return contact info. Requires authentication."""
     from sqlalchemy.exc import OperationalError
+    import uuid
+
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid profile ID format")
 
     # Check credits
     if current_user.credits <= 0:
         print(f"[UNLOCK] {current_user.email} has 0 credits — blocked.")
         raise HTTPException(
             status_code=402,
-            detail="Insufficient credits. Please recharge your account."
+            detail="Out of credits"
         )
 
-    profile = db.query(PMEProfile).filter(PMEProfile.id == profile_id).first()
+    profile = db.query(PMEProfile).filter(PMEProfile.id == profile_uuid).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
@@ -182,7 +188,7 @@ def unlock_contact(
         db.commit()
         db.refresh(current_user)
         print(f"[UNLOCK] {current_user.email} unlocked {profile_id} | remaining credits={current_user.credits}")
-    except OperationalError as e:
+    except Exception as e:
         db.rollback()
         print(f"[UNLOCK ERROR] DB write failed: {e}")
         raise HTTPException(status_code=500, detail="Database error during credit deduction.")

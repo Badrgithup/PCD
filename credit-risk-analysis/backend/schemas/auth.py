@@ -29,6 +29,7 @@ class TokenResponse(BaseModel):
     user_id: str
     email: str
     role: str
+    credits: int = 5  # included so frontend can seed its credit state from login
 
 
 class UserResponse(BaseModel):

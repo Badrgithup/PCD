@@ -24,12 +24,12 @@ export default function LoginPage() {
 
     try {
       const response = await apiClient.post("/auth/login", { email, password });
-      
-      const { access_token, user_id, role } = response.data;
-      
-      // Update global context & localStorage
-      login({ id: user_id, email, role }, access_token);
-      
+      const { access_token, user_id, role, credits } = response.data;
+
+      // Seed global context with credits from API — fixes false positive credit modal
+      console.log("[LOGIN] credits from API:", credits);
+      login({ id: user_id, email, role, credits: credits ?? 5 }, access_token);
+
       // Redirect based on role
       if (role === "PME") {
         router.push("/dashboard/pme");

@@ -55,12 +55,12 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         db.refresh(user)
         print(f"[REGISTER] User created: {user.email} | role={user.role.value} | credits={user.credits}")
 
-    except IntegrityError as e:
+    except Exception as e:
         db.rollback()
-        print(f"[REGISTER ERROR] IntegrityError for {payload.email}: {e}")
+        print(f"[REGISTER ERROR] DB write failed for {payload.email}: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Registration failed: a unique constraint was violated.",
+            detail="Registration failed: a unique constraint was violated or data was invalid.",
         )
 
     # Generate JWT
@@ -71,6 +71,7 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
         user_id=str(user.id),
         email=user.email,
         role=user.role.value,
+        credits=user.credits,
     )
 
 
@@ -93,6 +94,7 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         user_id=str(user.id),
         email=user.email,
         role=user.role.value,
+        credits=user.credits,
     )
 
 

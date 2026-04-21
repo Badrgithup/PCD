@@ -37,11 +37,12 @@ export default function RegisterPage() {
           : { email: formData.email, password: formData.password, role: formData.role };
           
       const response = await apiClient.post("/auth/register", registerPayload);
-      const { access_token, user_id, role } = response.data;
-      
-      // 2. Update global state immediately using the token returned by register endpoint
-      login({ id: user_id, email: formData.email, role }, access_token);
-      
+      const { access_token, user_id, role, credits } = response.data;
+
+      // 2. Seed global auth state with credits from the register response
+      console.log("[REGISTER] credits from API:", credits);
+      login({ id: user_id, email: formData.email, role, credits: credits ?? 5 }, access_token);
+
       // 3. Redirect
       if (role === "PME") {
         router.push("/dashboard/pme");

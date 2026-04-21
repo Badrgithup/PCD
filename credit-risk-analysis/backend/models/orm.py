@@ -145,3 +145,20 @@ class ScoreReport(Base):
     # Relationships
     financial_data = relationship("FinancialData", back_populates="score_report")
     pme_profile = relationship("PMEProfile", back_populates="score_reports")
+
+
+# ---------------------------------------------------------------------------
+# Wishlist
+# ---------------------------------------------------------------------------
+class Wishlist(Base):
+    __tablename__ = "wishlists"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    pme_profile_id = Column(Uuid(as_uuid=True), ForeignKey("pme_profiles.id", ondelete="CASCADE"), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = relationship("User", backref="wishlists")
+    pme_profile = relationship("PMEProfile", backref="wishlisted_by")

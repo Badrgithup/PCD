@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.database import Base, engine
 from ml_services.predictor import model_loader
-from routers import auth, marketplace, scoring, enrich
+from routers import auth, marketplace, scoring, enrich, wishlist
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +58,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(scoring.router, prefix="/scoring", tags=["Scoring"])
 app.include_router(marketplace.router, prefix="/marketplace", tags=["Marketplace"])
 app.include_router(enrich.router, prefix="/enrich", tags=["Enrichissement B2B"])
+app.include_router(wishlist.router, prefix="/wishlist", tags=["Wishlist"])
 
 
 # ---------------------------------------------------------------------------

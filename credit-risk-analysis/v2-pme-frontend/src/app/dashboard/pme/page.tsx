@@ -31,6 +31,10 @@ export default function PMEDashboardPage() {
   const [isToggling, setIsToggling] = useState(false);
   const [toggleFeedback, setToggleFeedback] = useState<string | null>(null);
 
+  // Missing State Vars for handleEnrich
+  const [companyNameToEnrich, setCompanyNameToEnrich] = useState("");
+  const [enrichStatus, setEnrichStatus] = useState<"idle" | "loading" | "success" | "partial">("idle");
+  const [enrichMissingFields, setEnrichMissingFields] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     business_turnover_tnd: "",
