@@ -29,24 +29,36 @@ def get_my_marketplace_status(db: Session = Depends(get_db), current_user: User 
 
 @router.put("/visibility")
 def toggle_visibility(payload: VisibilityToggle, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Toggle public visibility for the PME."""
+    """Toggle public visibility for the PME. Atomic commit with SQLite lock guard."""
+    from fastapi import HTTPException
+    from sqlalchemy.exc import OperationalError
+
     profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
     if not profile:
-        return {"error": "No profile found"}
-        
+        raise HTTPException(status_code=404, detail="PME profile not found.")
+
     profile.visibility_status = payload.visibility_status
     profile.marketplace_status = 1 if payload.visibility_status == "Public" else 0
-    # Atomic Commit Fixed Rule:
-    db.commit()
-    db.refresh(profile)
-    
+
+    try:
+        # Atomic Commit — persists visibility in finscore.db
+        db.commit()
+        db.refresh(profile)
+    except OperationalError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database locked or write error: {str(e)}. Please retry in a moment."
+        )
+
     return {
         "success": True,
         "visibility_status": profile.visibility_status,
         "marketplace_status": profile.marketplace_status,
         "profile_id": str(profile.id),
-        "rne_id": profile.identifiant_unique_rne or str(profile.id)[:8]
+        "rne_id": profile.identifiant_unique_rne or str(profile.id)[:8],
     }
+
 
 
 @router.get("/browse", response_model=MarketplaceBrowseResponse)

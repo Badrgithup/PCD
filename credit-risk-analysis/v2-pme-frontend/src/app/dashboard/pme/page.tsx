@@ -31,6 +31,11 @@ export default function PMEDashboardPage() {
   const [isToggling, setIsToggling] = useState(false);
   const [toggleFeedback, setToggleFeedback] = useState<string | null>(null);
 
+  // Enrichissement B2B Mock
+  const [companyNameToEnrich, setCompanyNameToEnrich] = useState("");
+  const [enrichStatus, setEnrichStatus] = useState<"idle" | "loading" | "success" | "partial">("idle");
+  const [enrichMissingFields, setEnrichMissingFields] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     business_turnover_tnd: "",
     business_expenses_tnd: "",
@@ -201,6 +206,29 @@ export default function PMEDashboardPage() {
     }
   };
 
+  const handleEnrich = async () => {
+    if (!companyNameToEnrich.trim()) return;
+    setEnrichStatus("loading");
+    try {
+      const res = await apiClient.post("/enrich/company/mock", { company_name: companyNameToEnrich });
+      if (res.data.status === "success") {
+        const d = res.data.data;
+        setFormData(prev => ({
+          ...prev,
+          type_of_business: d.sector || prev.type_of_business,
+          followers_linkedin: String(d.linkedin_followers || ""),
+        }));
+        setEnrichStatus("success");
+      } else {
+        setEnrichMissingFields(res.data.missing_fields || []);
+        setEnrichStatus("partial");
+      }
+    } catch {
+      setEnrichStatus("partial");
+      setEnrichMissingFields(["website", "employees", "sector"]);
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[150px] -z-10"></div>
@@ -233,8 +261,38 @@ export default function PMEDashboardPage() {
               {error && <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                
-                {/* 1. FINANCIAL MODULE */}
+
+                {/* ── Enrichissement B2B ── */}
+                <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                  <p className="text-sm font-bold text-indigo-300 mb-3">🪄 Enrichissement API Mock — Pré-remplissage Automatique</p>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={companyNameToEnrich}
+                      onChange={e => setCompanyNameToEnrich(e.target.value)}
+                      placeholder="Nom entreprise (ex: TechTunisia, AgriSfax...)"
+                      className="flex-1 px-4 py-2.5 rounded-xl bg-slate-900/70 border border-white/10 text-white text-sm outline-none focus:border-indigo-400"
+                    />
+                    <button type="button" onClick={handleEnrich} disabled={enrichStatus === "loading"}
+                      className="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50">
+                      {enrichStatus === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "🪄 Enrichir"}
+                    </button>
+                  </div>
+                  {enrichStatus === "success" && (
+                    <p className="mt-3 text-teal-400 text-xs font-semibold">✅ Données enrichies — champs pré-remplis automatiquement.</p>
+                  )}
+                  {enrichStatus === "partial" && (
+                    <div className="mt-3">
+                      <p className="text-yellow-400 text-xs font-semibold mb-1">⚠️ Données API introuvables. Veuillez saisir manuellement :</p>
+                      <div className="flex flex-wrap gap-2">
+                        {enrichMissingFields.map(f => (
+                          <span key={f} className="px-2 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs font-mono">{f}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <h3 className="text-teal-400 font-bold mb-4 uppercase text-sm tracking-wider border-b border-white/10 pb-2">Module 1: Financial & Structural Data</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">

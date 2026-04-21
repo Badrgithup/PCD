@@ -5,6 +5,33 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
 import apiClient from "@/lib/api/axios";
 
+// ── Clearbit Logo with initial-circle fallback ──────────────────────────────
+function CompanyLogo({ name, website }: { name: string; website?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const initial = name?.charAt(0).toUpperCase() || "?";
+  const colors = ["bg-indigo-500", "bg-teal-500", "bg-purple-500", "bg-orange-500", "bg-rose-500"];
+  const colorIdx = name.charCodeAt(0) % colors.length;
+
+  if (website && !imgError) {
+    const domain = website.replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+    return (
+      <img
+        src={`https://logo.clearbit.com/${domain}`}
+        alt={`${name} logo`}
+        onError={() => setImgError(true)}
+        className="w-9 h-9 rounded-lg object-contain bg-white p-0.5"
+      />
+    );
+  }
+
+  return (
+    <div className={`w-9 h-9 rounded-lg ${colors[colorIdx]} flex items-center justify-center font-bold text-white text-sm flex-shrink-0`}>
+      {initial}
+    </div>
+  );
+}
+
+
 // Fallback Mock Data using the new schema
 const MOCK_SMES = [
   { id: "1", name: "TechMakers Tunis", sector: "Technology", governorate: "Tunis", identifiantRne: "12345/A", financialGrade: "Grade A", finScore: 780, riskTier: "Low", cnssRatio: "98%", contactUnlocked: false },
@@ -201,10 +228,16 @@ export default function MarketplacePage() {
                         onClick={() => handleSmeClick(sme)}
                         className="hover:bg-white/10 transition-colors group cursor-pointer">
                         <td className="px-6 py-5">
-                          <div className="font-bold text-white group-hover:text-indigo-400 transition-colors flex items-center">
-                            {sme.name} <ExternalLink className="w-3 h-3 ml-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="flex items-center gap-3">
+                            {/* Clearbit Logo — falls back to initial circle */}
+                            <CompanyLogo name={sme.name} website={(sme as any).website} />
+                            <div>
+                              <div className="font-bold text-white group-hover:text-indigo-400 transition-colors flex items-center">
+                                {sme.name} <ExternalLink className="w-3 h-3 ms-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1 font-mono">ID RNE: {sme.identifiantRne}</div>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1 font-mono">ID RNE: {sme.identifiantRne}</div>
                         </td>
                         <td className="px-6 py-5">
                           <div className="flex flex-col gap-1.5">
