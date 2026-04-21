@@ -2,7 +2,7 @@
 Marketplace router: browse public PME profiles with their latest scores.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from core.database import get_db
 from core.security import get_current_user
 from models.orm import PMEProfile, ScoreReport, User, UserRole
 from schemas.marketplace import MarketplaceBrowseResponse, MarketplaceListing
+
 
 router = APIRouter()
 
@@ -156,15 +157,41 @@ def get_similar_profiles(profile_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{profile_id}/unlock_contact")
-def unlock_contact(profile_id: str, db: Session = Depends(get_db)):
-    """Simulates a subscription unlock for the contact info."""
+def unlock_contact(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """TASK 2: Deduct 1 credit and return contact info. Requires authentication."""
+    from sqlalchemy.exc import OperationalError
+
+    # Check credits
+    if current_user.credits <= 0:
+        print(f"[UNLOCK] {current_user.email} has 0 credits — blocked.")
+        raise HTTPException(
+            status_code=402,
+            detail="Insufficient credits. Please recharge your account."
+        )
+
     profile = db.query(PMEProfile).filter(PMEProfile.id == profile_id).first()
     if not profile:
-        return {"error": "Profile not found"}
-        
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    try:
+        current_user.credits -= 1
+        db.commit()
+        db.refresh(current_user)
+        print(f"[UNLOCK] {current_user.email} unlocked {profile_id} | remaining credits={current_user.credits}")
+    except OperationalError as e:
+        db.rollback()
+        print(f"[UNLOCK ERROR] DB write failed: {e}")
+        raise HTTPException(status_code=500, detail="Database error during credit deduction.")
+
     return {
         "success": True,
+        "credits_remaining": current_user.credits,
         "contact_email": profile.contact_email or "contact@company.tn",
         "contact_phone": profile.contact_phone or "+216 71 000 000",
-        "message": "Contact information unlocked from subscription tier."
+        "message": "Contact information unlocked.",
     }
+

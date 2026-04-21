@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
 import apiClient from "@/lib/api/axios";
+import { useTranslation } from "@/hooks/useTranslation";
+import { InsufficientCreditsModal } from "@/components/Navbar";
 
 // ── Clearbit Logo with initial-circle fallback ──────────────────────────────
 function CompanyLogo({ name, website }: { name: string; website?: string }) {
@@ -56,11 +58,13 @@ interface SME {
 }
 
 export default function MarketplacePage() {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState("");
   const [smeData, setSmeData] = useState<SME[]>(MOCK_SMES);
   const [isLoading, setIsLoading] = useState(true);
   const [dataSource, setDataSource] = useState<"live" | "mock">("mock");
-  
+  const [showCreditsModal, setShowCreditsModal] = useState(false);
+
   // Lead Generation Modal State
   const [selectedSme, setSelectedSme] = useState<SME | null>(null);
   const [similarSmes, setSimilarSmes] = useState<SME[]>([]);
@@ -72,9 +76,11 @@ export default function MarketplacePage() {
 
   const fetchMarketplace = async () => {
     try {
+      console.log("[MARKETPLACE] Fetching listings from /marketplace/browse");
       const res = await apiClient.get("/marketplace/browse");
       const listings = res.data.listings;
-      
+      console.log("[MARKETPLACE] Received", listings?.length ?? 0, "listings.");
+
       if (listings && listings.length > 0) {
         const mapped: SME[] = listings.map((item: any, index: number) => ({
           id: item.profile_id || String(index + 1),
@@ -90,8 +96,8 @@ export default function MarketplacePage() {
         setSmeData(mapped);
         setDataSource("live");
       }
-    } catch (err) {
-      console.warn("Marketplace API unavailable, using demo data.");
+    } catch (err: any) {
+      console.warn("[MARKETPLACE] API unavailable, using demo data. Error:", err?.message);
     } finally {
       setIsLoading(false);
     }
@@ -126,28 +132,40 @@ export default function MarketplacePage() {
   const unlockContact = async () => {
     if (!selectedSme) return;
     setIsUnlocking(true);
-    
+
     try {
-      // If we are on mock data, simulate network delay
       if (dataSource === "mock") {
         await new Promise(r => setTimeout(r, 1000));
         setSelectedSme({
-          ...selectedSme, 
-          contactUnlocked: true,
-          contactEmail: `contact@${selectedSme.name.toLowerCase().replace(/\s+/g,'')}.tn`,
-          contactPhone: "+216 71 123 456"
-        });
-      } else {
-        const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
-        setSelectedSme({
           ...selectedSme,
           contactUnlocked: true,
-          contactEmail: res.data.contact_email,
-          contactPhone: res.data.contact_phone
+          contactEmail: `contact@${selectedSme.name.toLowerCase().replace(/\s+/g, "")}.tn`,
+          contactPhone: "+216 71 123 456",
         });
+        console.log("[UNLOCK] Mock unlock completed for", selectedSme.name);
+      } else {
+        console.log("[UNLOCK] Calling /marketplace/" + selectedSme.id + "/unlock_contact");
+        const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
+        if (res.data.success) {
+          setSelectedSme({
+            ...selectedSme,
+            contactUnlocked: true,
+            contactEmail: res.data.contact_email,
+            contactPhone: res.data.contact_phone,
+          });
+          console.log("[UNLOCK] Success. Credits remaining:", res.data.credits_remaining);
+        }
       }
-    } catch (e) {
-      console.error("Unlock failed", e);
+    } catch (e: any) {
+      const status = e?.response?.status;
+      const detail = e?.response?.data?.detail || e?.message;
+      console.error("[UNLOCK ERROR] Status:", status, "|", detail);
+      if (status === 402) {
+        // TASK 2: Insufficient credits — show modal
+        setShowCreditsModal(true);
+      } else {
+        alert(`Unlock failed: ${detail}`);
+      }
     } finally {
       setIsUnlocking(false);
     }
@@ -178,22 +196,26 @@ export default function MarketplacePage() {
 
   return (
     <div className="pt-32 pb-24 min-h-screen px-6 relative overflow-hidden">
-      <div className="absolute top-1/3 left-1/3 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] -z-10"></div>
-      
+      <div className="absolute top-1/3 left-1/3 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] -z-10" />
+
+      {/* TASK 2: Insufficient Credits Modal */}
+      {showCreditsModal && <InsufficientCreditsModal onClose={() => setShowCreditsModal(false)} />}
+
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Investor Marketplace</h1>
+            <h1 className="text-4xl font-bold mb-2">{t("marketplace_title")}</h1>
             <p className="text-gray-400">
-              Discover and evaluate vetted Tunisian SMEs. Contact profiles are gated by subscription.
+              {t("marketplace_subtitle")}
               {dataSource === "mock" && !isLoading && (
-                <span className="ml-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Demo Data</span>
+                <span className="ms-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">{t("demo_data")}</span>
               )}
               {dataSource === "live" && (
-                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Live Profiles</span>
+                <span className="ms-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">{t("live_profiles")}</span>
               )}
             </p>
           </div>
+
           
           <div className="relative w-full md:w-96">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

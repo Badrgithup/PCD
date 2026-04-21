@@ -14,13 +14,21 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      {/*
+        suppressHydrationWarning is required because next-themes injects the
+        class="dark" or class="light" attribute on the SERVER side, which would
+        cause a hydration mismatch without this attribute.
+      */}
       <body
-        className={`${inter.className} bg-slate-950 dark:bg-slate-950 text-slate-50 antialiased transition-colors duration-300`}
+        className={`
+          ${inter.className}
+          bg-white text-slate-900
+          dark:bg-slate-950 dark:text-slate-50
+          antialiased transition-colors duration-300
+        `}
       >
         <Providers>
           <Navbar />
