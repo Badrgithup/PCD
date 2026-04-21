@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
 import apiClient from "@/lib/api/axios";
 import { InsufficientCreditsModal, useCreditsRefresh } from "@/components/Navbar";
+import { useAuthStore } from "@/store/authStore";
 import AuthGuard from "@/components/AuthGuard";
 
 // ── Clearbit Logo with initial-circle fallback ──────────────────────────────
@@ -58,7 +59,8 @@ interface SME {
 }
 
 export default function MarketplacePage() {
-  const refreshCredits = useCreditsRefresh(); // TASK 2: triggers Navbar re-fetch
+  const refreshCredits = useCreditsRefresh();
+  const { user, updateCredits } = useAuthStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [smeData, setSmeData] = useState<SME[]>(MOCK_SMES);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,6 +133,7 @@ export default function MarketplacePage() {
 
   const unlockContact = async () => {
     if (!selectedSme) return;
+    console.log("[UNLOCK] Current user credits:", user?.credits);
     setIsUnlocking(true);
 
     try {
@@ -154,7 +157,10 @@ export default function MarketplacePage() {
             contactPhone: res.data.contact_phone,
           });
           console.log("[UNLOCK] Success. Credits remaining:", res.data.credits_remaining);
-          // TASK 2: Re-fetch credits so Navbar counter updates immediately
+          // Update store immediately, then refresh from server
+          if (typeof res.data.credits_remaining === 'number') {
+            updateCredits(res.data.credits_remaining);
+          }
           refreshCredits();
         }
       }

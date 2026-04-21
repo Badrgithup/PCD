@@ -93,21 +93,19 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # current recommended model (llama3-8b-8192 decommissioned)
 
 SYSTEM_PROMPT = (
-    "You are a financial data extractor for a Tunisian credit scoring platform. "
-    "The user will give you a Tunisian company name. "
-    "Return ONLY a valid JSON object with these exact fields: "
-    "\"website\" (string domain or null), "
-    "\"sector\" (string industry or null), "
-    "\"estimated_employees\" (integer or null). "
-    "Do NOT add markdown, explanation, or code blocks. Output raw JSON only."
+    "You are a financial data extractor. The user will provide a Tunisian company name. "
+    "You must return ONLY a raw JSON object with the following keys: "
+    "\"capital_tnd\" (number), \"cnss_score\" (number), \"establishment_duration\" (number in days), "
+    "\"total_brevets\" (number). Estimate realistic data for a Tunisian company if exact data is unknown. "
+    "Do not include markdown formatting or extra text."
 )
 
 
-@router.post("/grok")
+@router.post("/groq")
 async def enrich_company_groq(payload: EnrichRequest):
     """
     AI-powered enrichment via Groq API (groq.com).
-    Uses LLaMA 3 8B — fast inference, no cost on free tier.
+    Uses LLaMA 3.3 70B — fast inference.
     Reads GROQ_API_KEY from .env file.
     """
     api_key = os.getenv("GROQ_API_KEY")
@@ -155,16 +153,17 @@ async def enrich_company_groq(payload: EnrichRequest):
                 raise ValueError(f"Cannot parse JSON from: {raw_content}")
 
         result = {
-            "website": extracted.get("website"),
-            "sector": extracted.get("sector"),
-            "estimated_employees": extracted.get("estimated_employees"),
+            "capital_tnd": extracted.get("capital_tnd"),
+            "cnss_score": extracted.get("cnss_score"),
+            "establishment_duration": extracted.get("establishment_duration"),
+            "total_brevets": extracted.get("total_brevets"),
         }
 
         print(f"[GROQ] Extracted: {result}")
 
         return {
             "status": "success",
-            "source": "groq_llama3",
+            "source": "groq",
             "company_name": payload.company_name,
             "data": result,
         }
