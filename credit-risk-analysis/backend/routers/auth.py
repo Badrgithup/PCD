@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core.database import get_db
 from core.security import create_access_token, get_current_user, hash_password, verify_password
-from models.orm import PMEProfile, User, UserRole
+from models.orm import PMEProfile, User, UserRole, FinancialData, ScoreReport, Wishlist
 from schemas.auth import TokenResponse, UserLogin, UserRegister
 
 router = APIRouter()
@@ -108,3 +108,38 @@ def get_me(db: Session = Depends(get_db), current_user: User = Depends(get_curre
         "role": current_user.role.value,
         "credits": current_user.credits,
     }
+
+
+@router.delete("/account")
+def delete_account(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """TASK 3: Securely delete user account and explicitly cascade all SQLite children for GDPR compliance."""
+    try:
+        # 1. Delete Wishlists where this user is the owner (i.e. Bankers saving profiles)
+        db.query(Wishlist).filter(Wishlist.user_id == current_user.id).delete()
+        
+        # 2. Check if user has a PME Profile to cascade its children
+        profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
+        if profile:
+            # Delete any Wishlists from OTHER users tracking this profile
+            db.query(Wishlist).filter(Wishlist.pme_profile_id == profile.id).delete()
+            
+            # Delete all score reports linked to this profile
+            db.query(ScoreReport).filter(ScoreReport.pme_profile_id == profile.id).delete()
+            
+            # Delete all financial data linked to this profile
+            db.query(FinancialData).filter(FinancialData.pme_profile_id == profile.id).delete()
+            
+            # Delete the profile itself
+            db.delete(profile)
+            
+        # 3. Finally, delete the User object
+        db.delete(current_user)
+        db.commit()
+        return {"status": "success", "message": "Account and all associated records permanently deleted."}
+    except Exception as e:
+        db.rollback()
+        print(f"[ACCOUNT DELETE ERROR] Failed for user {current_user.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete account due to a database error."
+        )

@@ -3,7 +3,7 @@
 import { useEffect, useState, createContext, useContext } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User, Coins, AlertCircle, X } from "lucide-react";
+import { LogOut, User, Coins, AlertCircle, X, UserX } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import apiClient from "@/lib/api/axios";
 
@@ -76,6 +76,23 @@ export default function Navbar() {
     router.push("/login");
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmDelete = window.confirm(
+      "Warning: This will permanently delete your account, your credits, and all saved predictions. This action cannot be undone."
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const res = await apiClient.delete("/auth/account");
+      if (res.data.status === "success") {
+        logout();
+        router.push("/login");
+      }
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Failed to delete account.");
+    }
+  };
+
   // credits read directly from store — always in sync
   const credits = user?.credits ?? null;
 
@@ -134,10 +151,19 @@ export default function Navbar() {
                 {/* Logout */}
                 <button
                   onClick={handleLogout}
-                  className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
+                  className="px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:bg-white/5 transition-all active:scale-95 flex items-center gap-1.5"
+                  title="Déconnexion"
                 >
                   <LogOut className="w-4 h-4" />
-                  Déconnexion
+                </button>
+
+                {/* Delete Account */}
+                <button
+                  onClick={handleDeleteAccount}
+                  className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
+                  title="Supprimer Mon Compte"
+                >
+                  <UserX className="w-4 h-4" />
                 </button>
               </>
             ) : (

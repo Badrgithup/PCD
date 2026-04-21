@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Calculator, ShieldCheck, Zap, Activity, AlertTriangle, TrendingUp, HelpCircle } from "lucide-react";
+import { Loader2, Calculator, ShieldCheck, Zap, Activity, AlertTriangle, TrendingUp, HelpCircle, Trash2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import apiClient from "@/lib/api/axios";
 import { useEffect } from "react";
@@ -147,6 +147,23 @@ export default function PMEDashboardPage() {
       setError(`❌ Scoring failed: ${msg}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeletePrediction = async () => {
+    if (!result?.report_id) return;
+    const confirmed = window.confirm("Are you sure you want to delete this prediction?");
+    if (!confirmed) return;
+
+    try {
+      const res = await apiClient.delete(`/scoring/prediction/${result.report_id}`);
+      if (res.data.status === "success") {
+        setResult(null);
+        setToggleFeedback("✅ Prediction was successfully deleted");
+        setTimeout(() => setToggleFeedback(null), 3000);
+      }
+    } catch (err) {
+      alert("Failed to delete prediction.");
     }
   };
 
@@ -382,8 +399,15 @@ export default function PMEDashboardPage() {
                 <div className="md:col-span-2 p-8 rounded-3xl bg-white/5 backdrop-blur-xl border border-teal-500/30 shadow-[0_0_30px_rgba(45,212,191,0.1)] flex flex-col sm:flex-row items-center justify-between relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/20 rounded-full blur-2xl"></div>
                   <div>
-                    <div className="text-sm text-teal-400 font-mono tracking-widest mb-2 uppercase">Official FinScore Evaluated</div>
-                    <h2 className="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-teal-400 font-mono tracking-widest uppercase">Official FinScore Evaluated</div>
+                      {result.report_id && (
+                        <button onClick={handleDeletePrediction} title="Delete Prediction" className="p-1.5 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/30">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <h2 className="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mt-2">
                       {result.score}<span className="text-2xl text-gray-500">/1000</span>
                     </h2>
                   </div>

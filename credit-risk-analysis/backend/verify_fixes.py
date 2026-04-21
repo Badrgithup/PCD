@@ -109,9 +109,94 @@ def test_c_out_of_credits(token, user_id, pme_id):
         print(f"FAILED: Expected 402, got {res.status_code}. Response: {res.text}")
         return False
 
+def test_d_delete_prediction(token):
+    print("--- TEST D: DELETE PREDICTION ---")
+    headers = {"Authorization": f"Bearer {token}"}
+    payload = {
+        "company_name": "Test Delete Pred",
+        "type_of_business": "Retail",
+        "business_turnover_tnd": 50000,
+        "business_expenses_tnd": 20000,
+        "profit_margin": 0.6,
+        "nbr_of_workers": 10,
+        "workers_verified_cnss": 10,
+        "formal_worker_ratio": 1.0,
+        "business_age_years": 5,
+        "number_of_owners": 1
+    }
+    
+    # Create prediction
+    res = requests.post(f"{BASE_URL}/scoring/predict", json=payload, headers=headers)
+    if res.status_code != 201:
+        print(f"FAILED: Predict failed. Status {res.status_code}")
+        return False
+        
+    report_id = res.json().get("report_id")
+    
+    # Delete prediction
+    res_del = requests.delete(f"{BASE_URL}/scoring/prediction/{report_id}", headers=headers)
+    if res_del.status_code == 200:
+        print("PASSED: Prediction deleted successfully.")
+        return True
+    else:
+        print(f"FAILED: Delete prediction returned {res_del.status_code}. Response: {res_del.text}")
+        return False
+
+def test_e_delete_account(token, user_id):
+    print("--- TEST E: GDPR ACCOUNT DELETION ---")
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    # 1. Add some data first to ensure cascade deletes
+    payload = {
+        "company_name": "GDPR Co",
+        "type_of_business": "Retail",
+        "business_turnover_tnd": 50000,
+        "business_expenses_tnd": 20000,
+        "profit_margin": 0.6,
+        "nbr_of_workers": 10,
+        "workers_verified_cnss": 10,
+        "formal_worker_ratio": 1.0,
+        "business_age_years": 5,
+        "number_of_owners": 1
+    }
+    requests.post(f"{BASE_URL}/scoring/predict", json=payload, headers=headers)
+    
+    # 2. Trigger Delete
+    res = requests.delete(f"{BASE_URL}/auth/account", headers=headers)
+    if res.status_code != 200:
+        print(f"FAILED: Account delete returned {res.status_code}. Response: {res.text}")
+        return False
+        
+    # 3. Verify SQLite Tables directly
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    raw_uid = user_id.replace('-', '')
+    
+    # Check User
+    cursor.execute("SELECT COUNT(*) FROM users WHERE id = ?", (raw_uid,))
+    user_count = cursor.fetchone()[0]
+    
+    # Since PME Profile is linked, find profile_id explicitly just to be safe, but it should be deleted.
+    # However we know the user deletion should have purged it natively if cascading is right.
+    cursor.execute("SELECT COUNT(*) FROM pme_profiles WHERE user_id = ?", (raw_uid,))
+    pme_count = cursor.fetchone()[0]
+    
+    conn.close()
+    
+    if user_count == 0 and pme_count == 0:
+        print("PASSED: SQLite cascading successfully removed orphaned rows.")
+        return True
+    else:
+        print(f"FAILED: Found orphaned rows: User({user_count}), PMEProfile({pme_count})")
+        return False
+
+
 if __name__ == "__main__":
     passed_a, user_id, token = test_a_registration()
     if passed_a:
         passed_b, pme_id = test_b_credit_deduction(token, None)
         if passed_b:
             test_c_out_of_credits(token, user_id, pme_id)
+            test_d_delete_prediction(token)
+            test_e_delete_account(token, user_id)

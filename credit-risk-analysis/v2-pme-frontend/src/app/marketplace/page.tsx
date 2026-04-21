@@ -178,23 +178,30 @@ export default function MarketplacePage() {
     try {
       if (dataSource === "mock") {
         await new Promise(r => setTimeout(r, 1000));
-        setSelectedSme({
-          ...selectedSme,
+        setSelectedSme(prev => prev ? {
+          ...prev,
           contactUnlocked: true,
-          contactEmail: `contact@${selectedSme.name.toLowerCase().replace(/\s+/g, "")}.tn`,
+          contactEmail: `contact@${prev.name.toLowerCase().replace(/\s+/g, "")}.tn`,
           contactPhone: "+216 71 123 456",
-        });
+        } : null);
         console.log("[UNLOCK] Mock unlock completed for", selectedSme.name);
       } else {
         console.log("[UNLOCK] Calling /marketplace/" + selectedSme.id + "/unlock_contact");
         const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
         if (res.data.success) {
-          setSelectedSme({
-            ...selectedSme,
+          setSelectedSme(prev => prev ? {
+            ...prev,
             contactUnlocked: true,
             contactEmail: res.data.contact_email,
             contactPhone: res.data.contact_phone,
-          });
+          } : null);
+
+          setSmeData(prev => prev.map(s => s.id === selectedSme.id ? {
+            ...s,
+            contactUnlocked: true,
+            contactEmail: res.data.contact_email,
+            contactPhone: res.data.contact_phone,
+          } : s));
           console.log("[UNLOCK] Success. Credits remaining:", res.data.credits_remaining);
           // Update store immediately, then refresh from server
           if (typeof res.data.credits_remaining === 'number') {
