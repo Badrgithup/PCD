@@ -1,26 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, createContext, useContext } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, User, Sun, Moon, Languages, Coins, AlertCircle, X } from "lucide-react";
-import { useTheme } from "next-themes";
+import { LogOut, User, Coins, AlertCircle, X } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import apiClient from "@/lib/api/axios";
 
-// ── Mini i18n ─────────────────────────────────────────────────────────────
-const T: Record<string, Record<string, string>> = {
-  fr: {
-    marketplace: "Marketplace", dashboard: "Tableau de bord",
-    signin: "Connexion", cta: "Obtenir Mon FinScore", logout: "Déconnexion",
-    credits: "crédits",
-  },
-  ar: {
-    marketplace: "السوق", dashboard: "لوحة التحكم",
-    signin: "تسجيل الدخول", cta: "احصل على FinScore", logout: "تسجيل الخروج",
-    credits: "رصيد",
-  },
-};
+// ── Credits API helper (exported so other pages can re-trigger a refresh) ──
+export const CreditsRefreshContext = createContext<() => void>(() => {});
+export const useCreditsRefresh = () => useContext(CreditsRefreshContext);
 
 // ── Insufficient Credits Modal ─────────────────────────────────────────────
 export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
@@ -35,13 +24,15 @@ export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
             <AlertCircle className="w-8 h-8 text-red-400" />
           </div>
           <h2 className="text-xl font-bold text-white">Crédits insuffisants</h2>
-          <p className="text-gray-400 text-sm">
+          <p className="text-gray-400 text-sm leading-relaxed">
             Vous n'avez plus de crédits pour débloquer des contacts.<br />
-            Veuillez recharger votre compte pour continuer.
+            Chaque nouveau compte démarre avec <strong className="text-teal-400">5 crédits gratuits</strong>.
           </p>
           <div className="flex gap-3 w-full mt-2">
-            <button onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-gray-300 hover:bg-white/5 transition-all">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-gray-300 hover:bg-white/5 transition-all"
+            >
               Fermer
             </button>
             <button className="flex-1 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all">
@@ -54,50 +45,33 @@ export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── Main Navbar ────────────────────────────────────────────────────────────
 export default function Navbar() {
   const router = useRouter();
   const { user, isAuthenticated, logout, hydrateAuth } = useAuthStore();
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  const [lang, setLang] = useState<"fr" | "ar">("fr");
   const [credits, setCredits] = useState<number | null>(null);
+
+  const fetchCredits = () => {
+    if (!isAuthenticated) return;
+    apiClient.get("/auth/me")
+      .then(res => {
+        setCredits(res.data.credits);
+        console.log("[NAVBAR] Credits refreshed:", res.data.credits);
+      })
+      .catch(err => console.warn("[NAVBAR] Could not fetch credits:", err.message));
+  };
 
   useEffect(() => {
     hydrateAuth();
-    setMounted(true);
-    const savedLang = (localStorage.getItem("finscore_lang") as "fr" | "ar") || "fr";
-    setLang(savedLang);
-    applyLang(savedLang);
   }, [hydrateAuth]);
 
-  // Fetch credits when user is authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      apiClient.get("/auth/me")
-        .then(res => {
-          setCredits(res.data.credits);
-          console.log("[NAVBAR] Credits loaded:", res.data.credits);
-        })
-        .catch(err => console.warn("[NAVBAR] Could not fetch credits:", err.message));
+      fetchCredits();
     } else {
       setCredits(null);
     }
   }, [isAuthenticated]);
-
-  const applyLang = (l: "fr" | "ar") => {
-    document.documentElement.lang = l;
-    document.documentElement.dir = l === "ar" ? "rtl" : "ltr";
-  };
-
-  const toggleLang = () => {
-    const next = lang === "fr" ? "ar" : "fr";
-    setLang(next);
-    localStorage.setItem("finscore_lang", next);
-    applyLang(next);
-    window.dispatchEvent(new Event("langchange")); // notify other components
-  };
-
-  const t = T[lang];
 
   const handleLogout = () => {
     logout();
@@ -106,79 +80,82 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 w-full z-50 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3 rounded-2xl
-        bg-white/5 dark:bg-white/5 light:bg-slate-100/80 backdrop-blur-md border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
+    <CreditsRefreshContext.Provider value={fetchCredits}>
+      <nav className="fixed top-0 w-full z-50 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-[0_4px_30px_rgba(0,0,0,0.1)]">
 
-        <Link href="/" className="text-2xl font-bold tracking-tighter">
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">
-            FinScore PME
-          </span>
-        </Link>
-
-        <div className="flex items-center gap-3">
-          <Link href="/marketplace" className="text-sm font-medium text-gray-300 dark:text-gray-300 hover:text-white transition-colors">
-            {t.marketplace}
+          {/* Logo */}
+          <Link href="/" className="text-2xl font-bold tracking-tighter">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-teal-400 to-indigo-500">
+              FinScore PME
+            </span>
           </Link>
 
-          {isAuthenticated && user ? (
-            <>
-              <Link href={user.role === "PME" ? "/dashboard/pme" : "/dashboard/investor"}
-                className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                {t.dashboard}
-              </Link>
+          {/* Nav Links */}
+          <div className="flex items-center gap-3">
 
-              {/* Credit Badge */}
-              {credits !== null && (
-                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold
-                  ${credits === 0
-                    ? "bg-red-500/10 border-red-500/30 text-red-400"
-                    : "bg-teal-500/10 border-teal-500/20 text-teal-400"}`}>
-                  <Coins className="w-3.5 h-3.5" />
-                  {credits} {t.credits}
+            {/* TASK 3: Marketplace only shown when authenticated */}
+            {isAuthenticated && (
+              <Link
+                href="/marketplace"
+                className="text-sm font-medium text-gray-300 hover:text-white transition-colors"
+              >
+                Marketplace
+              </Link>
+            )}
+
+            {isAuthenticated && user ? (
+              <>
+                <Link
+                  href={user.role === "PME" ? "/dashboard/pme" : "/dashboard/investor"}
+                  className="text-sm font-medium text-gray-300 hover:text-white transition-colors"
+                >
+                  Tableau de bord
+                </Link>
+
+                {/* Credit Badge */}
+                {credits !== null && (
+                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
+                    credits === 0
+                      ? "bg-red-500/10 border-red-500/30 text-red-400"
+                      : "bg-teal-500/10 border-teal-500/20 text-teal-400"
+                  }`}>
+                    <Coins className="w-3.5 h-3.5" />
+                    {credits} crédit{credits !== 1 ? "s" : ""}
+                  </div>
+                )}
+
+                {/* User Email Badge */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                  <User className="w-4 h-4 text-teal-400" />
+                  <span className="text-sm text-gray-300 max-w-[140px] truncate">{user.email}</span>
                 </div>
-              )}
 
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10">
-                <User className="w-4 h-4 text-teal-400" />
-                <span className="text-sm text-gray-300 max-w-[120px] truncate">{user.email}</span>
-              </div>
-
-              <button onClick={handleLogout}
-                className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-1.5">
-                <LogOut className="w-4 h-4" />
-                {t.logout}
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                {t.signin}
-              </Link>
-              <Link href="/register"
-                className="px-5 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all shadow-[0_0_15px_rgba(45,212,191,0.3)] active:scale-95">
-                {t.cta}
-              </Link>
-            </>
-          )}
-
-          {/* Language Toggle */}
-          <button onClick={toggleLang} title="Changer de langue"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-white/10 hover:bg-white/10 transition-all text-xs font-bold text-gray-300">
-            <Languages className="w-4 h-4" />
-            {lang === "fr" ? "عربي" : "FR"}
-          </button>
-
-          {/* Theme Toggle */}
-          {mounted && (
-            <button onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-              title="Toggle dark/light mode"
-              className="p-2.5 rounded-xl border border-white/10 hover:bg-white/10 transition-all text-gray-300">
-              {resolvedTheme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-          )}
+                {/* Logout */}
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Déconnexion
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                  Connexion
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-5 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all shadow-[0_0_15px_rgba(45,212,191,0.3)] active:scale-95"
+                >
+                  Obtenir Mon FinScore
+                </Link>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </CreditsRefreshContext.Provider>
   );
 }

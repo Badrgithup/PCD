@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Providers } from "@/components/Providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,25 +15,14 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
-      {/*
-        suppressHydrationWarning is required because next-themes injects the
-        class="dark" or class="light" attribute on the SERVER side, which would
-        cause a hydration mismatch without this attribute.
-      */}
+    // Force dark mode permanently — no theme switching
+    <html lang="fr" className="dark">
       <body
-        className={`
-          ${inter.className}
-          bg-white text-slate-900
-          dark:bg-slate-950 dark:text-slate-50
-          antialiased transition-colors duration-300
-        `}
+        className={`${inter.className} bg-slate-950 text-slate-50 antialiased`}
       >
-        <Providers>
-          <Navbar />
-          {children}
-          <Footer />
-        </Providers>
+        <Navbar />
+        {children}
+        <Footer />
       </body>
     </html>
   );

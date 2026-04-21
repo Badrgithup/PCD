@@ -73,6 +73,13 @@ export default function InvestorDashboardPage() {
   const [scrapingStep, setScrapingStep] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
 
+  // ── Enrichissement B2B (Mock + Grok AI) ──
+  const [enrichQuery, setEnrichQuery] = useState("");
+  const [enrichMode, setEnrichMode] = useState<"mock" | "grok">("mock");
+  const [enrichStatus, setEnrichStatus] = useState<"idle" | "loading" | "success" | "partial">("idle");
+  const [enrichMissingFields, setEnrichMissingFields] = useState<string[]>([]);
+  const [enrichGrokResult, setEnrichGrokResult] = useState<any>(null);
+
   const [formData, setFormData] = useState({
     company_name: "",
     sector: "Services",
@@ -192,12 +199,102 @@ export default function InvestorDashboardPage() {
     </div>
   );
 
+  const handleEnrich = async () => {
+    if (!enrichQuery.trim()) return;
+    setEnrichStatus("loading");
+    setEnrichGrokResult(null);
+    try {
+      const endpoint = enrichMode === "grok" ? "/enrich/grok" : "/enrich/company/mock";
+      console.log(`[ENRICH] Calling ${endpoint} for '${enrichQuery}'`);
+      const res = await apiClient.post(endpoint, { company_name: enrichQuery });
+
+      if (res.data.status === "success") {
+        const d = res.data.data;
+        setFormData(prev => ({
+          ...prev,
+          company_name: d.company_name || d.company_name || prev.company_name,
+          type_of_business: d.sector || prev.type_of_business,
+          followers_linkedin: String(d.linkedin_followers || d.estimated_employees || ""),
+        }));
+        setEnrichGrokResult(d);
+        setEnrichStatus("success");
+        console.log("[ENRICH] Success:", d);
+      } else {
+        setEnrichMissingFields(res.data.missing_fields || []);
+        setEnrichStatus("partial");
+        console.warn("[ENRICH] Partial:", res.data.missing_fields);
+      }
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message;
+      console.error("[ENRICH ERROR]", detail);
+      setEnrichMissingFields(["website", "sector", "employees"]);
+      setEnrichStatus("partial");
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[150px] -z-10" />
 
       <div className="max-w-5xl mx-auto">
         {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Banker Intelligence Portal</h1>
+          <p className="text-gray-400">Évaluation crédit SME complète — dual-model FinScore pipeline.</p>
+        </div>
+
+        {/* ── AI Enrichissement Panel ── */}
+        <div className="mb-6 p-6 rounded-3xl bg-indigo-500/10 border border-indigo-500/20 shadow-lg">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm font-bold text-indigo-300">🪄 Agent d'Enrichissement — Pré-remplissage Intelligent</p>
+            <div className="flex gap-2">
+              <button onClick={() => setEnrichMode("mock")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                  enrichMode === "mock" ? "bg-indigo-500 border-indigo-500 text-white" : "border-white/10 text-gray-400 hover:bg-white/5"
+                }`}>
+                Mock DB
+              </button>
+              <button onClick={() => setEnrichMode("grok")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                  enrichMode === "grok" ? "bg-violet-500 border-violet-500 text-white" : "border-white/10 text-gray-400 hover:bg-white/5"
+                }`}>
+                🤖 Grok AI
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <input type="text" value={enrichQuery} onChange={e => setEnrichQuery(e.target.value)}
+              placeholder="Nom de l'entreprise (ex: TechTunisia, AgriSfax...)..."
+              className="flex-1 px-4 py-3 rounded-xl bg-slate-900/70 border border-white/10 text-white text-sm outline-none focus:border-indigo-400"
+              onKeyDown={e => e.key === "Enter" && handleEnrich()}
+            />
+            <button onClick={handleEnrich} disabled={enrichStatus === "loading"}
+              className="px-6 py-3 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50">
+              {enrichStatus === "loading" ? <Loader2 className="w-4 h-4 animate-spin" /> : "🪄 Analyser"}
+            </button>
+          </div>
+          {enrichStatus === "success" && enrichGrokResult && (
+            <div className="mt-4 p-4 rounded-xl bg-teal-500/10 border border-teal-500/20">
+              <p className="text-teal-400 text-xs font-bold mb-2">✅ Données récupérées — formulaire pré-rempli automatiquement</p>
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                {enrichGrokResult.website && <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-gray-400">Site:</span> <span className="text-white font-mono">{enrichGrokResult.website}</span></div>}
+                {enrichGrokResult.sector && <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-gray-400">Secteur:</span> <span className="text-white">{enrichGrokResult.sector}</span></div>}
+                {(enrichGrokResult.employees || enrichGrokResult.estimated_employees) && <div className="bg-white/5 px-3 py-2 rounded-lg"><span className="text-gray-400">Employees:</span> <span className="text-white">{enrichGrokResult.employees || enrichGrokResult.estimated_employees}</span></div>}
+              </div>
+            </div>
+          )}
+          {enrichStatus === "partial" && (
+            <div className="mt-3">
+              <p className="text-yellow-400 text-xs font-semibold mb-2">⚠️ Données introuvables. Saisissez manuellement :</p>
+              <div className="flex flex-wrap gap-2">
+                {enrichMissingFields.map(f => (
+                  <span key={f} className="px-2 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-300 text-xs font-mono">{f}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Banker Intelligence Portal</h1>
           <p className="text-gray-400">Full-spectrum SME credit assessment — run any company through the complete FinScore dual-model pipeline.</p>

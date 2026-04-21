@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Filter, TrendingUp, AlertTriangle, ShieldCheck, Loader2, MapPin, Building, Lock, Unlock, Mail, Phone, ExternalLink } from "lucide-react";
 import apiClient from "@/lib/api/axios";
-import { useTranslation } from "@/hooks/useTranslation";
-import { InsufficientCreditsModal } from "@/components/Navbar";
+import { InsufficientCreditsModal, useCreditsRefresh } from "@/components/Navbar";
+import AuthGuard from "@/components/AuthGuard";
 
 // ── Clearbit Logo with initial-circle fallback ──────────────────────────────
 function CompanyLogo({ name, website }: { name: string; website?: string }) {
@@ -58,7 +58,7 @@ interface SME {
 }
 
 export default function MarketplacePage() {
-  const { t } = useTranslation();
+  const refreshCredits = useCreditsRefresh(); // TASK 2: triggers Navbar re-fetch
   const [searchTerm, setSearchTerm] = useState("");
   const [smeData, setSmeData] = useState<SME[]>(MOCK_SMES);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,6 +154,8 @@ export default function MarketplacePage() {
             contactPhone: res.data.contact_phone,
           });
           console.log("[UNLOCK] Success. Credits remaining:", res.data.credits_remaining);
+          // TASK 2: Re-fetch credits so Navbar counter updates immediately
+          refreshCredits();
         }
       }
     } catch (e: any) {
@@ -195,6 +197,7 @@ export default function MarketplacePage() {
   };
 
   return (
+    <AuthGuard>
     <div className="pt-32 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-1/3 left-1/3 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px] -z-10" />
 
@@ -204,17 +207,18 @@ export default function MarketplacePage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-6">
           <div>
-            <h1 className="text-4xl font-bold mb-2">{t("marketplace_title")}</h1>
+            <h1 className="text-4xl font-bold mb-2">Investor Marketplace</h1>
             <p className="text-gray-400">
-              {t("marketplace_subtitle")}
+              Découvrez et évaluez des PMEs tunisiennes vérifiées. Les contacts sont accessibles par abonnement.
               {dataSource === "mock" && !isLoading && (
-                <span className="ms-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">{t("demo_data")}</span>
+                <span className="ml-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Données Demo</span>
               )}
               {dataSource === "live" && (
-                <span className="ms-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">{t("live_profiles")}</span>
+                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Profils Live</span>
               )}
             </p>
           </div>
+
 
           
           <div className="relative w-full md:w-96">
@@ -412,5 +416,6 @@ export default function MarketplacePage() {
         )}
       </AnimatePresence>
     </div>
+    </AuthGuard>
   );
 }
