@@ -93,13 +93,10 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # current recommended model (llama3-8b-8192 decommissioned)
 
 SYSTEM_PROMPT = (
-    "You are a financial data extractor. The user will provide a Tunisian company name. "
-    "You must return ONLY a raw JSON object with the following keys: "
-    "\"capital_tnd\" (number), \"cnss_score\" (number), \"establishment_duration\" (number in days), "
-    "\"total_brevets\" (number). Estimate realistic data for a Tunisian company if exact data is unknown. "
-    "Do not include markdown formatting or extra text."
+    "You are a financial API. Return ONLY raw JSON. Generate highly realistic, UNIQUE data based specifically on the scale implied by the company name. "
+    "Do not use default fallback numbers. The JSON MUST STRICTLY contain ONLY these exact keys: "
+    "\"capital_tnd\" (number), \"cnss_score\" (number), \"establishment_duration\" (number), \"total_brevets\" (number)."
 )
-
 
 @router.post("/groq")
 async def enrich_company_groq(payload: EnrichRequest):
@@ -125,10 +122,10 @@ async def enrich_company_groq(payload: EnrichRequest):
         "model": GROQ_MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Company name: {payload.company_name}"},
+            {"role": "user", "content": f"Generate JSON for Tunisian company: {payload.company_name}"},
         ],
-        "temperature": 0.1,
-        "max_tokens": 256,
+        "temperature": 0.8,
+        "max_tokens": 512,
     }
 
     print(f"[GROQ] Calling Groq API for company: '{payload.company_name}' | model: {GROQ_MODEL}")

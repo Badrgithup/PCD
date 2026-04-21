@@ -79,43 +79,10 @@ export default function MarketplacePage() {
   const [selectedSme, setSelectedSme] = useState<SME | null>(null);
   const [similarSmes, setSimilarSmes] = useState<SME[]>([]);
   const [isUnlocking, setIsUnlocking] = useState(false);
-  const [wishlistIds, setWishlistIds] = useState<string[]>([]);
-  const [isWishlisting, setIsWishlisting] = useState(false);
-
   useEffect(() => {
     fetchMarketplace();
-    fetchWishlist();
   }, []);
 
-  const fetchWishlist = async () => {
-    try {
-      const res = await apiClient.get("/wishlist");
-      if (res.data.status === "success") {
-        setWishlistIds(res.data.wishlisted_profile_ids || []);
-      }
-    } catch (err) {
-      console.warn("Failed to load wishlist");
-    }
-  };
-
-  const toggleWishlist = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // prevent modal opening if clicked from table directly (though we put it in modal)
-    setIsWishlisting(true);
-    try {
-      const res = await apiClient.post(`/wishlist/${id}`);
-      if (res.data.action === "added") {
-        setWishlistIds(prev => [...prev, id]);
-        window.alert("✔ PME ajoutée aux favoris avec succès");
-      } else {
-        setWishlistIds(prev => prev.filter(wId => wId !== id));
-        window.alert("❌ PME retirée des favoris");
-      }
-    } catch (err) {
-      console.error("Failed to toggle wishlist");
-    } finally {
-      setIsWishlisting(false);
-    }
-  };
 
   const fetchMarketplace = async () => {
     try {
@@ -191,12 +158,13 @@ export default function MarketplacePage() {
         console.log("[UNLOCK] Calling /marketplace/" + selectedSme.id + "/unlock_contact");
         const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
         if (res.data.success) {
-          setSelectedSme(prev => prev ? {
-            ...prev,
+          // Strictly overwrite from API payload to prevent stale spreading
+          setSelectedSme({
+            ...selectedSme,
             contactUnlocked: true,
             contactEmail: res.data.contact_email,
             contactPhone: res.data.contact_phone,
-          } : null);
+          });
 
           setSmeData(prev => prev.map(s => s.id === selectedSme.id ? {
             ...s,
@@ -378,17 +346,6 @@ export default function MarketplacePage() {
                 <button onClick={() => setSelectedSme(null)} className="absolute top-6 right-6 text-gray-400 hover:text-white">✕</button>
                 <div className="flex items-center gap-4 mb-2">
                   <h2 className="text-3xl font-bold text-white">{selectedSme.name}</h2>
-                  <button 
-                    onClick={(e) => toggleWishlist(selectedSme.id, e)}
-                    disabled={isWishlisting}
-                    className={`p-2 rounded-full border transition-all ${
-                      wishlistIds.includes(selectedSme.id) 
-                        ? "bg-rose-500/10 border-rose-500/30 text-rose-500" 
-                        : "bg-white/5 border-white/10 text-gray-400 hover:text-rose-400 hover:border-rose-400/30"
-                    }`}
-                  >
-                    <Heart className={`w-5 h-5 ${wishlistIds.includes(selectedSme.id) ? "fill-rose-500 text-rose-500" : ""}`} />
-                  </button>
                 </div>
                 <div className="flex gap-4 text-sm text-gray-400">
                   <span className="flex items-center"><MapPin className="w-4 h-4 mr-1 text-indigo-400" /> {selectedSme.governorate}</span>

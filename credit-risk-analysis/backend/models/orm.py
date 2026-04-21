@@ -162,3 +162,22 @@ class Wishlist(Base):
     # Relationships
     user = relationship("User", backref="wishlists")
     pme_profile = relationship("PMEProfile", backref="wishlisted_by")
+
+
+# ---------------------------------------------------------------------------
+# Banker Simulation Log
+# ---------------------------------------------------------------------------
+class BankerSimulationLog(Base):
+    __tablename__ = "banker_simulation_logs"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    capital = Column(Float, nullable=False)
+    score = Column(Integer, nullable=False)
+    risk_tier = Column(String(50), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = relationship("User", backref="simulation_logs")

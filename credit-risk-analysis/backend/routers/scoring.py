@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from ml_services.predictor import model_loader
-from models.orm import FinancialData, PMEProfile, ScoreReport, User, UserRole
-from schemas.scoring import FinancialInput, ScoreResponse
+from models.orm import FinancialData, PMEProfile, ScoreReport, User, UserRole, BankerSimulationLog
+from schemas.scoring import FinancialInput, ScoreResponse, BankerSimulationLogInput
 
 router = APIRouter()
 
@@ -245,3 +245,32 @@ def delete_prediction(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     return {"status": "success", "message": "Prediction deleted"}
+
+@router.post("/logs")
+def save_simulation_log(
+    payload: BankerSimulationLogInput,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """TASK 3: Save a banker simulation to the database natively without arbitrary references."""
+    if current_user.role != UserRole.BANK:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only bankers can save simulation logs.",
+        )
+        
+    log = BankerSimulationLog(
+        user_id=current_user.id,
+        company_name=payload.company_name,
+        capital=payload.capital,
+        score=payload.score,
+        risk_tier=payload.risk_tier,
+    )
+    db.add(log)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"status": "success", "message": "Simulation log saved!"}

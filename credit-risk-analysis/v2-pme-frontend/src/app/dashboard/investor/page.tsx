@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, Calculator, Search, Bot, TrendingUp, AlertTriangle,
   ShieldCheck, Zap, Activity, HelpCircle, Building2, Users,
-  BarChart2, Globe, Lock
+  BarChart2, Globe, Lock, Save
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -23,6 +23,7 @@ interface ScoreResult {
   weaknesses: { feature: string; value: number; shap_value: number; description: string }[];
   cnss_score_grade?: string;
   op_integrity_index?: string;
+  report_id?: string;
 }
 
 const SECTORS = [
@@ -143,6 +144,25 @@ export default function InvestorDashboardPage() {
       setError(`❌ Scoring failed: ${msg}`);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSaveToLogs = async () => {
+    if (!result) return;
+    try {
+      const payload = {
+        company_name: formData.company_name || "Unknown SME",
+        capital: Number(formData.business_turnover_tnd) || 0,
+        score: result.score,
+        risk_tier: result.risk_tier
+      };
+      const res = await apiClient.post("/scoring/logs", payload);
+      if (res.data.status === "success") {
+        window.alert("✅ Log saved!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      window.alert("❌ Erreur : Impossible de sauvegarder l'historique.");
     }
   };
 
@@ -436,6 +456,13 @@ export default function InvestorDashboardPage() {
                     <p className="text-sm text-gray-300 font-medium bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
                       Decision: {result.decision}
                     </p>
+                    {/* The Save Prediction Button — now fully visible to Bankers running mock simulations */}
+                    <button 
+                      onClick={handleSaveToLogs}
+                      className="mt-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] flex items-center gap-2"
+                    >
+                      <Save className="w-4 h-4" /> Sauvegarder la prédiction
+                    </button>
                   </div>
                 </div>
 

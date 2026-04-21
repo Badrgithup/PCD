@@ -63,7 +63,7 @@ export default function WishlistPage() {
         
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Mes Favoris</h1>
+            <h1 className="text-4xl font-bold mb-2">Historique des Prédictions</h1>
             <p className="text-gray-400">
               Retrouvez toutes les entreprises PME que vous avez sauvegardées pour un suivi approfondi.
             </p>
@@ -76,8 +76,8 @@ export default function WishlistPage() {
           ) : savedSmes.length === 0 ? (
             <div className="text-center py-24 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl">
               <Lock className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-300">Aucun favori enregistré</h3>
-              <p className="text-gray-500 mt-2">Explorez la Marketplace pour ajouter des entreprises intéressantes.</p>
+              <h3 className="text-xl font-bold text-gray-300">Aucun historique enregistré</h3>
+              <p className="text-gray-500 mt-2">Sauvegardez vos prédictions pour les retrouver ici.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
