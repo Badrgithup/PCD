@@ -17,6 +17,7 @@ interface ScoreResult {
   weaknesses: { feature: string; value: number; shap_value: number; description: string }[];
   cnss_score_grade?: string;
   op_integrity_index?: string;
+  report_id?: string;
 }
 
 export default function PMEDashboardPage() {

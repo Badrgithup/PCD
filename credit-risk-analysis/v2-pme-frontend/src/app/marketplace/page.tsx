@@ -105,8 +105,10 @@ export default function MarketplacePage() {
       const res = await apiClient.post(`/wishlist/${id}`);
       if (res.data.action === "added") {
         setWishlistIds(prev => [...prev, id]);
+        window.alert("✔ PME ajoutée aux favoris avec succès");
       } else {
         setWishlistIds(prev => prev.filter(wId => wId !== id));
+        window.alert("❌ PME retirée des favoris");
       }
     } catch (err) {
       console.error("Failed to toggle wishlist");

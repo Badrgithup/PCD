@@ -130,6 +130,15 @@ export default function Navbar() {
                   Tableau de bord
                 </Link>
 
+                {user.role === "BANK" && (
+                  <Link
+                    href="/wishlist"
+                    className="text-sm font-medium text-rose-400 hover:text-rose-300 transition-colors"
+                  >
+                    Mes Favoris
+                  </Link>
+                )}
+
                 {/* Credit Badge */}
                 {credits !== null && (
                   <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors ${
