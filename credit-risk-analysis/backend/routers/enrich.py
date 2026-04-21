@@ -93,9 +93,13 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # current recommended model (llama3-8b-8192 decommissioned)
 
 SYSTEM_PROMPT = (
-    "You are a financial API. Return ONLY raw JSON. Generate highly realistic, UNIQUE data based specifically on the scale implied by the company name. "
-    "Do not use default fallback numbers. The JSON MUST STRICTLY contain ONLY these exact keys: "
-    "\"capital_tnd\" (number), \"cnss_score\" (number), \"establishment_duration\" (number), \"total_brevets\" (number)."
+    "You are a financial estimator for the Tunisian market. You MUST return ONLY valid JSON with no markdown. "
+    "You MUST estimate values for ALL fields based on the size implied by the company name. NEVER return null. "
+    "RULES: "
+    "1. `capital_tnd`: Integer between 10,000 and 50,000,000. "
+    "2. `cnss_score`: Integer between 100 and 2000 (DO NOT USE DECIMALS like 0.86). A large company should be close to 1500. "
+    "3. `establishment_duration`: Integer in days between 500 and 15000. "
+    "4. `total_brevets`: Integer between 0 and 50."
 )
 
 @router.post("/groq")
@@ -121,8 +125,30 @@ async def enrich_company_groq(payload: EnrichRequest):
     body = {
         "model": GROQ_MODEL,
         "messages": [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Generate JSON for Tunisian company: {payload.company_name}"},
+            {
+                "role": "system",
+                "content": (
+                    "You are a strict data extraction API for Tunisian companies. "
+                    "You MUST return ONLY a raw JSON object. Do NOT wrap it in ```json blocks. "
+                    "You MUST invent highly realistic data for the company name provided based on its likely sector. "
+                    "If a value is unknown, make a highly educated guess. NEVER return null or missing fields. "
+                    "You MUST strictly obey these exact limits for every field:\n"
+                    "- business_age_years: integer (between 1 and 100)\n"
+                    "- number_of_owners: integer (between 1 and 10)\n"
+                    "- annual_turnover_tnd: integer (between 50000 and 100000000)\n"
+                    "- annual_expenses_tnd: integer (must be strictly less than annual_turnover_tnd)\n"
+                    "- total_workers: integer (between 2 and 5000)\n"
+                    "- cnss_verified_workers: integer (must be less than or equal to total_workers)\n"
+                    "- rne_compliance_score: integer (STRICTLY between 0 and 10)\n"
+                    "- steg_sonede_rating: integer (STRICTLY between 0 and 10. Do not exceed 10)\n"
+                    "- banking_maturity_score: integer (STRICTLY between 0 and 10)\n"
+                    "- facebook_followers: integer (between 100 and 500000)\n"
+                )
+            },
+            {
+                "role": "user",
+                "content": f"Return the JSON object for the company: {payload.company_name}"
+            }
         ],
         "temperature": 0.8,
         "max_tokens": 512,
@@ -133,6 +159,7 @@ async def enrich_company_groq(payload: EnrichRequest):
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.post(GROQ_API_URL, headers=headers, json=body)
+            print("🚨 RAW GROQ RESPONSE:", response.text)
             response.raise_for_status()
 
         groq_data = response.json()
@@ -140,20 +167,24 @@ async def enrich_company_groq(payload: EnrichRequest):
         print(f"[GROQ] Raw response: {raw_content}")
 
         # Parse JSON — handle potential markdown code blocks
+        clean_content = raw_content.replace('```json', '').replace('```', '').strip()
         try:
-            extracted = json.loads(raw_content)
-        except json.JSONDecodeError:
-            match = re.search(r"\{.*?\}", raw_content, re.DOTALL)
-            if match:
-                extracted = json.loads(match.group())
-            else:
-                raise ValueError(f"Cannot parse JSON from: {raw_content}")
+            extracted = json.loads(clean_content)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=500, detail=f"JSON Parse Error: {str(e)}")
 
+        # Extract standard structure using explicit bounded properties
         result = {
-            "capital_tnd": extracted.get("capital_tnd"),
-            "cnss_score": extracted.get("cnss_score"),
-            "establishment_duration": extracted.get("establishment_duration"),
-            "total_brevets": extracted.get("total_brevets"),
+            "business_age_years": extracted.get("business_age_years"),
+            "number_of_owners": extracted.get("number_of_owners"),
+            "annual_turnover_tnd": extracted.get("annual_turnover_tnd"),
+            "annual_expenses_tnd": extracted.get("annual_expenses_tnd"),
+            "total_workers": extracted.get("total_workers"),
+            "cnss_verified_workers": extracted.get("cnss_verified_workers"),
+            "rne_compliance_score": extracted.get("rne_compliance_score"),
+            "steg_sonede_rating": extracted.get("steg_sonede_rating"),
+            "banking_maturity_score": extracted.get("banking_maturity_score"),
+            "facebook_followers": extracted.get("facebook_followers"),
         }
 
         print(f"[GROQ] Extracted: {result}")

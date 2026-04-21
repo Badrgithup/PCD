@@ -139,9 +139,8 @@ export default function MarketplacePage() {
     }
   };
 
-  const unlockContact = async () => {
-    if (!selectedSme) return;
-    console.log("[UNLOCK] Current user credits:", user?.credits);
+  const unlockContact = async (pmeId: string) => {
+    if (!selectedSme || selectedSme.id !== pmeId) return;
     setIsUnlocking(true);
 
     try {
@@ -156,23 +155,17 @@ export default function MarketplacePage() {
         console.log("[UNLOCK] Mock unlock completed for", selectedSme.name);
       } else {
         console.log("[UNLOCK] Calling /marketplace/" + selectedSme.id + "/unlock_contact");
-        const res = await apiClient.post(`/marketplace/${selectedSme.id}/unlock_contact`);
+        const res = await apiClient.post(`/marketplace/${pmeId}/unlock_contact`);
         if (res.data.success) {
-          // Strictly overwrite from API payload to prevent stale spreading
-          setSelectedSme({
-            ...selectedSme,
-            contactUnlocked: true,
-            contactEmail: res.data.contact_email,
-            contactPhone: res.data.contact_phone,
-          });
+          const unlockedData = res.data; // Ensure the backend returns the full unlocked profile
+          
+          // 1. Update the main list so the card knows it's unlocked
+          setSmeData(prevSmes => prevSmes.map(sme => 
+            sme.id === selectedSme.id ? { ...sme, ...unlockedData, contactUnlocked: true, contactEmail: unlockedData.contact_email, contactPhone: unlockedData.contact_phone } : sme
+          ));
 
-          setSmeData(prev => prev.map(s => s.id === selectedSme.id ? {
-            ...s,
-            contactUnlocked: true,
-            contactEmail: res.data.contact_email,
-            contactPhone: res.data.contact_phone,
-          } : s));
-          console.log("[UNLOCK] Success. Credits remaining:", res.data.credits_remaining);
+          // 2. Update the currently selected modal state explicitly
+          setSelectedSme(prev => (prev ? { ...prev, ...unlockedData, contactUnlocked: true, contactEmail: unlockedData.contact_email, contactPhone: unlockedData.contact_phone } : null));
           // Update store immediately, then refresh from server
           if (typeof res.data.credits_remaining === 'number') {
             updateCredits(res.data.credits_remaining);
@@ -390,13 +383,13 @@ export default function MarketplacePage() {
                       </div>
                       <h3 className="text-xl font-bold text-white mb-6">Contact Information Unlocked</h3>
                       <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a href={`mailto:${selectedSme.contactEmail}`} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
+                        <a href={selectedSme.contactEmail ? `mailto:${selectedSme.contactEmail}` : '#'} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
                           <Mail className="w-5 h-5 mr-3 text-teal-400" /> 
-                          <span className="font-mono text-gray-300">{selectedSme.contactEmail}</span>
+                          <span className="font-mono text-gray-300">{selectedSme.contactEmail || "Non renseigné"}</span>
                         </a>
-                        <a href={`tel:${selectedSme.contactPhone?.replace(/\s+/g,'')}`} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
+                        <a href={selectedSme.contactPhone ? `tel:${selectedSme.contactPhone.replace(/\s+/g,'')}` : '#'} className="flex items-center justify-center px-6 py-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors">
                           <Phone className="w-5 h-5 mr-3 text-teal-400" /> 
-                          <span className="font-mono text-gray-300">{selectedSme.contactPhone}</span>
+                          <span className="font-mono text-gray-300">{selectedSme.contactPhone || "Non renseigné"}</span>
                         </a>
                       </div>
                     </motion.div>
@@ -407,7 +400,7 @@ export default function MarketplacePage() {
                       </div>
                       <h3 className="text-lg font-bold text-white mb-2">Unlock Direct Contact</h3>
                       <p className="text-sm text-gray-400 mb-6 max-w-sm">Use a Lead Credit to unlock phone & email data for {selectedSme.name}.</p>
-                      <button onClick={unlockContact} disabled={isUnlocking}
+                      <button onClick={() => unlockContact(selectedSme.id)} disabled={isUnlocking}
                         className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl flex items-center transition-all disabled:opacity-50">
                         {isUnlocking ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Unlock className="w-5 h-5 mr-2" />}
                         Unlock for 1 Credit

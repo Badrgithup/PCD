@@ -147,25 +147,6 @@ export default function InvestorDashboardPage() {
     }
   };
 
-  const handleSaveToLogs = async () => {
-    if (!result) return;
-    try {
-      const payload = {
-        company_name: formData.company_name || "Unknown SME",
-        capital: Number(formData.business_turnover_tnd) || 0,
-        score: result.score,
-        risk_tier: result.risk_tier
-      };
-      const res = await apiClient.post("/scoring/logs", payload);
-      if (res.data.status === "success") {
-        window.alert("✅ Log saved!");
-      }
-    } catch (err: any) {
-      console.error(err);
-      window.alert("❌ Erreur : Impossible de sauvegarder l'historique.");
-    }
-  };
-
   const handleAutoScrape = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -230,25 +211,25 @@ export default function InvestorDashboardPage() {
       if (res.data.status === "success") {
         const d = res.data.data;
         
-        // Calculate age and compliance based on Groq payload
-        const ageYears = d.establishment_duration ? Math.max(1, Math.round(d.establishment_duration / 365)) : "";
-        const rneScore = d.total_brevets !== undefined ? Math.min(10, 5 + d.total_brevets) : 5;
-        // Assume cnss_score from Groq is out of 10 or 100? If it's a raw number just use it, or default to 5.
-        const cnssScore = d.cnss_score !== undefined ? (d.cnss_score > 10 ? d.cnss_score / 10 : d.cnss_score) : 5;
-
+        // Exact manual override mapping per instructions
         setFormData(prev => ({
           ...prev,
           company_name: enrichQuery,
-          business_turnover_tnd: d.capital_tnd ? String(d.capital_tnd) : prev.business_turnover_tnd,
-          business_age_years: ageYears ? String(ageYears) : prev.business_age_years,
-          compliance_rne_score: rneScore,
-          steg_sonede_score: cnssScore,
+          business_age_years: d.business_age_years || prev.business_age_years,
+          number_of_owners: d.number_of_owners || prev.number_of_owners,
+          business_turnover_tnd: d.annual_turnover_tnd || prev.business_turnover_tnd,
+          business_expenses_tnd: d.annual_expenses_tnd || prev.business_expenses_tnd,
+          nbr_of_workers: d.total_workers || prev.nbr_of_workers,
+          workers_verified_cnss: d.cnss_verified_workers || prev.workers_verified_cnss,
+          compliance_rne_score: d.rne_compliance_score || prev.compliance_rne_score,
+          steg_sonede_score: d.steg_sonede_rating || prev.steg_sonede_score,
+          banking_maturity_score: d.banking_maturity_score || prev.banking_maturity_score,
+          followers_fcb: d.facebook_followers || prev.followers_fcb,
         }));
         
         setEnrichGrokResult(d);
         setEnrichStatus("success");
         console.log("[ENRICH] Success:", d);
-        // TASK 3: Switch back to manual tab upon success
         setActiveTab("manual");
       } else {
         setEnrichStatus("partial");
@@ -256,6 +237,7 @@ export default function InvestorDashboardPage() {
     } catch (err: any) {
       console.error("[ENRICH ERROR]", err?.response?.data?.detail || err?.message);
       setEnrichStatus("partial");
+      window.alert("❌ Scraping failed: " + (err.response?.data?.detail || err.message));
     }
   };
 
@@ -456,13 +438,6 @@ export default function InvestorDashboardPage() {
                     <p className="text-sm text-gray-300 font-medium bg-white/10 px-3 py-1.5 rounded-lg border border-white/10">
                       Decision: {result.decision}
                     </p>
-                    {/* The Save Prediction Button — now fully visible to Bankers running mock simulations */}
-                    <button 
-                      onClick={handleSaveToLogs}
-                      className="mt-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] flex items-center gap-2"
-                    >
-                      <Save className="w-4 h-4" /> Sauvegarder la prédiction
-                    </button>
                   </div>
                 </div>
 

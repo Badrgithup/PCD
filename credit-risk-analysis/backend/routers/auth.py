@@ -47,6 +47,8 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
                 governorate=payload.governorate,
                 visibility_status="Private",
                 marketplace_status=0,
+                contact_phone=payload.contact_phone,
+                contact_email=payload.contact_email,
             )
             db.add(profile)
             print(f"[REGISTER] PME profile created for {payload.email}")

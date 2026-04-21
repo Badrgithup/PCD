@@ -196,8 +196,8 @@ def unlock_contact(
     return {
         "success": True,
         "credits_remaining": current_user.credits,
-        "contact_email": profile.contact_email or "contact@company.tn",
-        "contact_phone": profile.contact_phone or "+216 71 000 000",
+        "contact_email": profile.contact_email or "",
+        "contact_phone": profile.contact_phone or "",
         "message": "Contact information unlocked.",
     }
 

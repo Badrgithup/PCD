@@ -14,6 +14,8 @@ class UserRegister(BaseModel):
     identifiant_unique_rne: str | None = Field(default=None, max_length=100)
     sector: str | None = Field(default=None, max_length=100)
     governorate: str | None = Field(default=None, max_length=100)
+    contact_phone: str | None = Field(default=None, max_length=50)
+    contact_email: EmailStr | None = Field(default=None)
 
 
 class UserLogin(BaseModel):

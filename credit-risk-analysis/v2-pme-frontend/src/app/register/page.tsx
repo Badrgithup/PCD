@@ -20,6 +20,7 @@ export default function RegisterPage() {
     identifiant_unique_rne: "",
     governorate: "Tunis",
     sector: "Technology",
+    contact_phone: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function RegisterPage() {
       // 1. Register User
       const registerPayload = 
         formData.role === "PME" 
-          ? formData 
+          ? { ...formData, contact_email: formData.email } // Explicitly copy auth email to contact_email
           : { email: formData.email, password: formData.password, role: formData.role };
           
       const response = await apiClient.post("/auth/register", registerPayload);
@@ -170,6 +171,16 @@ export default function RegisterPage() {
                 <option value="Textile">Textile</option>
                 <option value="Construction">Construction</option>
               </select>
+
+              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Numéro de téléphone</label>
+              <input
+                type="tel"
+                required
+                value={formData.contact_phone}
+                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-white outline-none mb-4"
+                placeholder="+216 71 000 000"
+              />
             </motion.div>
           )}
 
