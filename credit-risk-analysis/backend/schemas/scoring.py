@@ -66,3 +66,9 @@ class ScoreResponse(BaseModel):
     report_id: str | None = Field(default=None, description="DB report ID (null for simulations)")
     cnss_score_grade: str | None = Field(default=None, description="Traffic light grade for CNSS")
     op_integrity_index: str | None = Field(default=None, description="Traffic light grade for Integrity")
+
+class BankerSimulationLogInput(BaseModel):
+    company_name: str
+    capital: float
+    score: int
+    risk_tier: str

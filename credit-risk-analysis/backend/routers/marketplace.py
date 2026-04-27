@@ -2,7 +2,7 @@
 Marketplace router: browse public PME profiles with their latest scores.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from core.database import get_db
 from core.security import get_current_user
 from models.orm import PMEProfile, ScoreReport, User, UserRole
 from schemas.marketplace import MarketplaceBrowseResponse, MarketplaceListing
+
 
 router = APIRouter()
 
@@ -29,24 +30,36 @@ def get_my_marketplace_status(db: Session = Depends(get_db), current_user: User 
 
 @router.put("/visibility")
 def toggle_visibility(payload: VisibilityToggle, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Toggle public visibility for the PME."""
+    """Toggle public visibility for the PME. Atomic commit with SQLite lock guard."""
+    from fastapi import HTTPException
+    from sqlalchemy.exc import OperationalError
+
     profile = db.query(PMEProfile).filter(PMEProfile.user_id == current_user.id).first()
     if not profile:
-        return {"error": "No profile found"}
-        
+        raise HTTPException(status_code=404, detail="PME profile not found.")
+
     profile.visibility_status = payload.visibility_status
     profile.marketplace_status = 1 if payload.visibility_status == "Public" else 0
-    # Atomic Commit Fixed Rule:
-    db.commit()
-    db.refresh(profile)
-    
+
+    try:
+        # Atomic Commit — persists visibility in finscore.db
+        db.commit()
+        db.refresh(profile)
+    except OperationalError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database locked or write error: {str(e)}. Please retry in a moment."
+        )
+
     return {
         "success": True,
         "visibility_status": profile.visibility_status,
         "marketplace_status": profile.marketplace_status,
         "profile_id": str(profile.id),
-        "rne_id": profile.identifiant_unique_rne or str(profile.id)[:8]
+        "rne_id": profile.identifiant_unique_rne or str(profile.id)[:8],
     }
+
 
 
 @router.get("/browse", response_model=MarketplaceBrowseResponse)
@@ -144,15 +157,47 @@ def get_similar_profiles(profile_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/{profile_id}/unlock_contact")
-def unlock_contact(profile_id: str, db: Session = Depends(get_db)):
-    """Simulates a subscription unlock for the contact info."""
-    profile = db.query(PMEProfile).filter(PMEProfile.id == profile_id).first()
+def unlock_contact(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """TASK 2: Deduct 1 credit and return contact info. Requires authentication."""
+    from sqlalchemy.exc import OperationalError
+    import uuid
+
+    try:
+        profile_uuid = uuid.UUID(profile_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid profile ID format")
+
+    # Check credits
+    if current_user.credits <= 0:
+        print(f"[UNLOCK] {current_user.email} has 0 credits — blocked.")
+        raise HTTPException(
+            status_code=402,
+            detail="Out of credits"
+        )
+
+    profile = db.query(PMEProfile).filter(PMEProfile.id == profile_uuid).first()
     if not profile:
-        return {"error": "Profile not found"}
-        
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    try:
+        current_user.credits -= 1
+        db.commit()
+        db.refresh(current_user)
+        print(f"[UNLOCK] {current_user.email} unlocked {profile_id} | remaining credits={current_user.credits}")
+    except Exception as e:
+        db.rollback()
+        print(f"[UNLOCK ERROR] DB write failed: {e}")
+        raise HTTPException(status_code=500, detail="Database error during credit deduction.")
+
     return {
         "success": True,
-        "contact_email": profile.contact_email or "contact@company.tn",
-        "contact_phone": profile.contact_phone or "+216 71 000 000",
-        "message": "Contact information unlocked from subscription tier."
+        "credits_remaining": current_user.credits,
+        "contact_email": profile.contact_email or "",
+        "contact_phone": profile.contact_phone or "",
+        "message": "Contact information unlocked.",
     }
+

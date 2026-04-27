@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, Calculator, Search, Bot, TrendingUp, AlertTriangle,
   ShieldCheck, Zap, Activity, HelpCircle, Building2, Users,
-  BarChart2, Globe, Lock
+  BarChart2, Globe, Lock, Save
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -23,6 +23,7 @@ interface ScoreResult {
   weaknesses: { feature: string; value: number; shap_value: number; description: string }[];
   cnss_score_grade?: string;
   op_integrity_index?: string;
+  report_id?: string;
 }
 
 const SECTORS = [
@@ -72,6 +73,13 @@ export default function InvestorDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [scrapingStep, setScrapingStep] = useState("");
   const [companyUrl, setCompanyUrl] = useState("");
+
+  // ── Enrichissement B2B (Mock + Grok AI) ──
+  const [enrichQuery, setEnrichQuery] = useState("");
+  const [enrichMode, setEnrichMode] = useState<"mock" | "grok">("mock");
+  const [enrichStatus, setEnrichStatus] = useState<"idle" | "loading" | "success" | "partial">("idle");
+  const [enrichMissingFields, setEnrichMissingFields] = useState<string[]>([]);
+  const [enrichGrokResult, setEnrichGrokResult] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     company_name: "",
@@ -192,12 +200,58 @@ export default function InvestorDashboardPage() {
     </div>
   );
 
+  const handleEnrich = async () => {
+    if (!enrichQuery.trim()) return;
+    setEnrichStatus("loading");
+    setEnrichGrokResult(null);
+    try {
+      console.log(`[ENRICH] Calling /enrich/groq for '${enrichQuery}'`);
+      const res = await apiClient.post("/enrich/groq", { company_name: enrichQuery });
+
+      if (res.data.status === "success") {
+        const d = res.data.data;
+        
+        // Exact manual override mapping per instructions
+        setFormData(prev => ({
+          ...prev,
+          company_name: enrichQuery,
+          business_age_years: d.business_age_years || prev.business_age_years,
+          number_of_owners: d.number_of_owners || prev.number_of_owners,
+          business_turnover_tnd: d.annual_turnover_tnd || prev.business_turnover_tnd,
+          business_expenses_tnd: d.annual_expenses_tnd || prev.business_expenses_tnd,
+          nbr_of_workers: d.total_workers || prev.nbr_of_workers,
+          workers_verified_cnss: d.cnss_verified_workers || prev.workers_verified_cnss,
+          compliance_rne_score: d.rne_compliance_score || prev.compliance_rne_score,
+          steg_sonede_score: d.steg_sonede_rating || prev.steg_sonede_score,
+          banking_maturity_score: d.banking_maturity_score || prev.banking_maturity_score,
+          followers_fcb: d.facebook_followers || prev.followers_fcb,
+        }));
+        
+        setEnrichGrokResult(d);
+        setEnrichStatus("success");
+        console.log("[ENRICH] Success:", d);
+        setActiveTab("manual");
+      } else {
+        setEnrichStatus("partial");
+      }
+    } catch (err: any) {
+      console.error("[ENRICH ERROR]", err?.response?.data?.detail || err?.message);
+      setEnrichStatus("partial");
+      window.alert("❌ Scraping failed: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[150px] -z-10" />
 
       <div className="max-w-5xl mx-auto">
         {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2">Banker Intelligence Portal</h1>
+          <p className="text-gray-400">Évaluation crédit SME complète — dual-model FinScore pipeline.</p>
+        </div>
+
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Banker Intelligence Portal</h1>
           <p className="text-gray-400">Full-spectrum SME credit assessment — run any company through the complete FinScore dual-model pipeline.</p>
@@ -324,40 +378,41 @@ export default function InvestorDashboardPage() {
                       </div>
                     </div>
 
-                    <button type="submit" disabled={isSubmitting}
+                    <button type="submit" disabled={isSubmitting || !formData.company_name || !formData.business_turnover_tnd || !formData.business_expenses_tnd || !formData.business_age_years}
                       className="w-full py-5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold text-lg flex items-center justify-center hover:opacity-90 transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] disabled:opacity-50 mt-2">
                       {isSubmitting ? <><Loader2 className="w-6 h-6 animate-spin mr-3" /> Running Full FinScore Analysis...</> : <><Calculator className="w-6 h-6 mr-3" /> Run Full Dual-Model FinScore</>}
                     </button>
                   </form>
                 ) : (
-                  <form onSubmit={handleAutoScrape} className="space-y-6">
-                    <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 text-sm flex gap-3 items-start">
-                      <AlertTriangle className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                      <span>Web scraping module is under development. The simulation will run but results are not yet connected to live data sources.</span>
+                  <div className="space-y-6">
+                    <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-sm flex gap-3 items-start">
+                      <Bot className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                      <span>Groq AI will crawl available data and auto-fill the FinScore assessment form below. Any missing data must be filled manually.</span>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-300 ml-1">Target Company URL / LinkedIn Profile</label>
+                      <label className="text-sm font-medium text-gray-300 ml-1">Target Company Name</label>
                       <div className="relative">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input type="url" required value={companyUrl} onChange={(e) => setCompanyUrl(e.target.value)}
+                        <input type="text" value={enrichQuery} onChange={(e) => setEnrichQuery(e.target.value)}
                           className="w-full pl-12 pr-4 py-4 rounded-xl bg-slate-900/50 border border-white/10 focus:border-teal-500 text-white outline-none"
-                          placeholder="https://linkedin.com/company/tunis-tech" />
+                          placeholder="e.g. Poulina Group" />
                       </div>
-                      <p className="text-xs text-gray-400 mt-2 ml-1">Once activated, our agent will crawl the RNE public registry, LinkedIn, and social platforms to auto-fill the scoring model.</p>
                     </div>
-                    <button type="submit" disabled={isSubmitting}
+                    <button type="button" onClick={handleEnrich} disabled={enrichStatus === "loading"}
                       className="w-full py-4 rounded-xl bg-teal-500 text-slate-950 font-bold flex items-center justify-center hover:bg-teal-400 transition-all disabled:opacity-50 relative overflow-hidden">
-                      {isSubmitting ? (
+                      {enrichStatus === "loading" ? (
                         <div className="flex items-center gap-3 font-mono text-sm">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>{scrapingStep}</span>
+                          <span>Scraping via Groq...</span>
                         </div>
                       ) : (
-                        <><Bot className="mr-2 w-5 h-5" /> Run Web Scraper Agent</>
+                        <><Bot className="mr-2 w-5 h-5" /> Scrape via Groq</>
                       )}
-                      {isSubmitting && <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent)] -translate-x-full animate-[shimmer_1.5s_infinite]" />}
                     </button>
-                  </form>
+                    {enrichStatus === "partial" && (
+                      <p className="text-red-400 text-sm font-medium text-center">Failed to extract complete data. Missing fields must be filled manually.</p>
+                    )}
+                  </div>
                 )}
               </div>
             </motion.div>

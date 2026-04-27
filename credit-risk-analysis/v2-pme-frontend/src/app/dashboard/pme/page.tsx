@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Calculator, ShieldCheck, Zap, Activity, AlertTriangle, TrendingUp, HelpCircle } from "lucide-react";
+import { Loader2, Calculator, ShieldCheck, Zap, Activity, AlertTriangle, TrendingUp, HelpCircle, Trash2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import apiClient from "@/lib/api/axios";
 import { useEffect } from "react";
@@ -17,6 +17,7 @@ interface ScoreResult {
   weaknesses: { feature: string; value: number; shap_value: number; description: string }[];
   cnss_score_grade?: string;
   op_integrity_index?: string;
+  report_id?: string;
 }
 
 export default function PMEDashboardPage() {
@@ -30,6 +31,11 @@ export default function PMEDashboardPage() {
   const [marketplaceStatus, setMarketplaceStatus] = useState<number>(0);
   const [isToggling, setIsToggling] = useState(false);
   const [toggleFeedback, setToggleFeedback] = useState<string | null>(null);
+
+  // Missing State Vars for handleEnrich
+  const [companyNameToEnrich, setCompanyNameToEnrich] = useState("");
+  const [enrichStatus, setEnrichStatus] = useState<"idle" | "loading" | "success" | "partial">("idle");
+  const [enrichMissingFields, setEnrichMissingFields] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     business_turnover_tnd: "",
@@ -145,6 +151,23 @@ export default function PMEDashboardPage() {
     }
   };
 
+  const handleDeletePrediction = async () => {
+    if (!result?.report_id) return;
+    const confirmed = window.confirm("Are you sure you want to delete this prediction?");
+    if (!confirmed) return;
+
+    try {
+      const res = await apiClient.delete(`/scoring/prediction/${result.report_id}`);
+      if (res.data.status === "success") {
+        setResult(null);
+        setToggleFeedback("✅ Prediction was successfully deleted");
+        setTimeout(() => setToggleFeedback(null), 3000);
+      }
+    } catch (err) {
+      alert("Failed to delete prediction.");
+    }
+  };
+
   const shapChartData = result
     ? [
         ...(result.strengths || []).map((s) => ({ name: s.feature.replace(/_/g, " "), value: Math.abs(s.shap_value) * 100, positive: true, desc: s.description })),
@@ -201,6 +224,29 @@ export default function PMEDashboardPage() {
     }
   };
 
+  const handleEnrich = async () => {
+    if (!companyNameToEnrich.trim()) return;
+    setEnrichStatus("loading");
+    try {
+      const res = await apiClient.post("/enrich/company/mock", { company_name: companyNameToEnrich });
+      if (res.data.status === "success") {
+        const d = res.data.data;
+        setFormData(prev => ({
+          ...prev,
+          type_of_business: d.sector || prev.type_of_business,
+          followers_linkedin: String(d.linkedin_followers || ""),
+        }));
+        setEnrichStatus("success");
+      } else {
+        setEnrichMissingFields(res.data.missing_fields || []);
+        setEnrichStatus("partial");
+      }
+    } catch {
+      setEnrichStatus("partial");
+      setEnrichMissingFields(["website", "employees", "sector"]);
+    }
+  };
+
   return (
     <div className="pt-24 pb-24 min-h-screen px-6 relative overflow-hidden">
       <div className="absolute top-0 right-1/4 w-[500px] h-[500px] bg-teal-500/10 rounded-full blur-[150px] -z-10"></div>
@@ -233,8 +279,8 @@ export default function PMEDashboardPage() {
               {error && <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">{error}</div>}
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                
-                {/* 1. FINANCIAL MODULE */}
+
+
                 <div>
                   <h3 className="text-teal-400 font-bold mb-4 uppercase text-sm tracking-wider border-b border-white/10 pb-2">Module 1: Financial & Structural Data</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -354,8 +400,15 @@ export default function PMEDashboardPage() {
                 <div className="md:col-span-2 p-8 rounded-3xl bg-white/5 backdrop-blur-xl border border-teal-500/30 shadow-[0_0_30px_rgba(45,212,191,0.1)] flex flex-col sm:flex-row items-center justify-between relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-teal-500/20 rounded-full blur-2xl"></div>
                   <div>
-                    <div className="text-sm text-teal-400 font-mono tracking-widest mb-2 uppercase">Official FinScore Evaluated</div>
-                    <h2 className="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-teal-400 font-mono tracking-widest uppercase">Official FinScore Evaluated</div>
+                      {result.report_id && (
+                        <button onClick={handleDeletePrediction} title="Delete Prediction" className="p-1.5 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all border border-red-500/30">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <h2 className="text-6xl font-black text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)] mt-2">
                       {result.score}<span className="text-2xl text-gray-500">/1000</span>
                     </h2>
                   </div>

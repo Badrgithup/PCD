@@ -47,6 +47,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), nullable=False, default=UserRole.PME)
+    credits = Column(Integer, default=5, nullable=False)  # TASK 2: credit wallet
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     # Relationships
@@ -62,7 +63,7 @@ class PMEProfile(Base):
     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
     company_name = Column(String(255), nullable=False)
-    identifiant_unique_rne = Column(String(100), nullable=True, unique=True, index=True)
+    identifiant_unique_rne = Column(String(100), nullable=True, index=True)  # unique removed: NULL != NULL in SQLite
     sector = Column(String(100), nullable=True)
     governorate = Column(String(100), nullable=True)
     
@@ -144,3 +145,39 @@ class ScoreReport(Base):
     # Relationships
     financial_data = relationship("FinancialData", back_populates="score_report")
     pme_profile = relationship("PMEProfile", back_populates="score_reports")
+
+
+# ---------------------------------------------------------------------------
+# Wishlist
+# ---------------------------------------------------------------------------
+class Wishlist(Base):
+    __tablename__ = "wishlists"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    pme_profile_id = Column(Uuid(as_uuid=True), ForeignKey("pme_profiles.id", ondelete="CASCADE"), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = relationship("User", backref="wishlists")
+    pme_profile = relationship("PMEProfile", backref="wishlisted_by")
+
+
+# ---------------------------------------------------------------------------
+# Banker Simulation Log
+# ---------------------------------------------------------------------------
+class BankerSimulationLog(Base):
+    __tablename__ = "banker_simulation_logs"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    company_name = Column(String(255), nullable=False)
+    capital = Column(Float, nullable=False)
+    score = Column(Integer, nullable=False)
+    risk_tier = Column(String(50), nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    user = relationship("User", backref="simulation_logs")

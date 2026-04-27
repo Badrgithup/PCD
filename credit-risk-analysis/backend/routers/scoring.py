@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from ml_services.predictor import model_loader
-from models.orm import FinancialData, PMEProfile, ScoreReport, User, UserRole
-from schemas.scoring import FinancialInput, ScoreResponse
+from models.orm import FinancialData, PMEProfile, ScoreReport, User, UserRole, BankerSimulationLog
+from schemas.scoring import FinancialInput, ScoreResponse, BankerSimulationLogInput
 
 router = APIRouter()
 
@@ -205,7 +205,72 @@ def get_latest_financial_data(
         steg_sonede_score=latest_data.steg_sonede_score or 5,
         banking_maturity_score=latest_data.banking_maturity_score or 5,
         followers_fcb=latest_data.followers_fcb,
-        followers_insta=latest_data.followers_insta,
         followers_linkedin=latest_data.followers_linkedin,
         posts_per_month=latest_data.posts_per_month,
     )
+
+@router.delete("/prediction/{id}")
+def delete_prediction(
+    id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """TASK 2: Delete a specific prediction belonging to the current user."""
+    import uuid
+    try:
+        score_id = uuid.UUID(id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid prediction ID format")
+
+    report = db.query(ScoreReport).filter(ScoreReport.id == score_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+
+    # Authorize owner
+    profile = db.query(PMEProfile).filter(PMEProfile.id == report.pme_profile_id).first()
+    if not profile or profile.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden: You are not the owner of this prediction")
+
+    try:
+        # Delete related financial data alongside it to keep it clean natively.
+        if report.financial_data_id:
+            fin_data = db.query(FinancialData).filter(FinancialData.id == report.financial_data_id).first()
+            if fin_data:
+                db.delete(fin_data)
+        
+        db.delete(report)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {"status": "success", "message": "Prediction deleted"}
+
+@router.post("/logs")
+def save_simulation_log(
+    payload: BankerSimulationLogInput,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """TASK 3: Save a banker simulation to the database natively without arbitrary references."""
+    if current_user.role != UserRole.BANK:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only bankers can save simulation logs.",
+        )
+        
+    log = BankerSimulationLog(
+        user_id=current_user.id,
+        company_name=payload.company_name,
+        capital=payload.capital,
+        score=payload.score,
+        risk_tier=payload.risk_tier,
+    )
+    db.add(log)
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    return {"status": "success", "message": "Simulation log saved!"}
