@@ -11,6 +11,10 @@ export const metadata: Metadata = {
   description: "Innovative AI-driven Fintech platform for Tunisian SMEs.",
 };
 
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import ChatbotWidget from "@/components/ChatbotWidget";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -23,6 +27,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Footer />
+        <ChatbotWidget />
       </body>
     </html>
   );

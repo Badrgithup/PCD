@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import ChatbotWidget from "@/components/ChatbotWidget";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -29,6 +30,7 @@ export default function RootLayout({
         <main className="pt-24 min-h-screen">
           {children}
         </main>
+        <ChatbotWidget />
       </body>
     </html>
   );

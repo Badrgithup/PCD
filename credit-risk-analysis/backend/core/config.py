@@ -28,8 +28,20 @@ class Settings(BaseSettings):
     # ML
     ML_MODELS_DIR: str = "./ml_models"
 
-    # Groq AI enrichment (optional)
-    GROQ_API_KEY: Optional[str] = None
+    # LLM (GitHub Models only)
+    LLM_PROVIDER: str = "github"  # github
+    LLM_API_KEY: str | None = None
+    LLM_MODEL: str = "gpt-4.1-mini"
+    LLM_BASE_URL: str | None = None
+    LLM_FALLBACK_ENABLED: bool = False
+
+    # GitHub Models (OpenAI-compatible API)
+    GITHUB_API_KEY: str | None = None
+    GITHUB_MODEL: str = "gpt-4.1-mini"
+
+    # OpenAI legacy compatibility
+    OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
 
 settings = Settings()
