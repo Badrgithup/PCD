@@ -28,7 +28,7 @@ MOCK_DB: dict = {
         "employees": 42,
         "sector": "Technology / IT",
         "governorate": "Tunis",
-        "description": "Développement de solutions digitales B2B pour les PMEs tunisiennes.",
+        "description": "Development of B2B digital solutions for Tunisian SMEs.",
         "linkedin_followers": 1800,
         "founded_year": 2015,
         "rne_id": "1234567A",
@@ -39,7 +39,7 @@ MOCK_DB: dict = {
         "employees": 87,
         "sector": "Agriculture",
         "governorate": "Sfax",
-        "description": "Exportation d'huile d'olive et de dattes biologiques certifiées.",
+        "description": "Export of certified organic olive oil and dates.",
         "linkedin_followers": 650,
         "founded_year": 2009,
         "rne_id": "7654321B",
@@ -50,7 +50,7 @@ MOCK_DB: dict = {
         "employees": 210,
         "sector": "Transport / Logistics",
         "governorate": "Ariana",
-        "description": "Logistique et transport terrestre couvrant la Tunisie et le Maghreb.",
+        "description": "Land logistics and transport covering Tunisia and the Maghreb.",
         "linkedin_followers": 4200,
         "founded_year": 2001,
         "rne_id": "9876543C",
@@ -83,7 +83,7 @@ def enrich_company_mock(payload: EnrichRequest):
             "status": "partial",
             "source": "mock_b2b_api",
             "missing_fields": ["website", "employees", "sector", "description", "linkedin_followers"],
-            "message": "Entreprise non trouvée dans la base mock. Saisie manuelle requise.",
+            "message": "Company not found in the mock database. Manual entry required.",
         }
 
 
@@ -187,5 +187,5 @@ async def enrich_company_groq(payload: EnrichRequest):
         print(f"[GROQ ERROR] {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Enrichissement Groq échoué: {str(e)}"
+            detail=f"Groq enrichment failed: {str(e)}"
         )

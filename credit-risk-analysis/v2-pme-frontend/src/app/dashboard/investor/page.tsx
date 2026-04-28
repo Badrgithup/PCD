@@ -34,9 +34,9 @@ const SECTORS = [
 
 const GOVERNORATES = [
   "Tunis", "Ariana", "Ben Arous", "Manouba", "Nabeul", "Zaghouan",
-  "Bizerte", "Béja", "Jendouba", "Kef", "Siliana", "Kairouan",
+  "Bizerte", "Beja", "Jendouba", "Kef", "Siliana", "Kairouan",
   "Kasserine", "Sidi Bouzid", "Sousse", "Monastir", "Mahdia",
-  "Sfax", "Gafsa", "Tozeur", "Kebili", "Gabès", "Médenine", "Tataouine",
+  "Sfax", "Gafsa", "Tozeur", "Kebili", "Gabes", "Medenine", "Tataouine",
 ];
 
 function getRiskColor(tier: string) {
@@ -162,7 +162,7 @@ export default function InvestorDashboardPage() {
       }
     } catch (err: any) {
       console.error(err);
-      window.alert("❌ Erreur : Impossible de sauvegarder l'historique.");
+      window.alert("❌ Error: Failed to save the prediction log.");
     }
   };
 
@@ -269,7 +269,7 @@ export default function InvestorDashboardPage() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Banker Intelligence Portal</h1>
-          <p className="text-gray-400">Évaluation crédit SME complète — dual-model FinScore pipeline.</p>
+          <p className="text-gray-400">Full-spectrum SME credit assessment — dual-model FinScore pipeline.</p>
         </div>
 
         <div className="mb-8">
@@ -463,7 +463,7 @@ export default function InvestorDashboardPage() {
                       onClick={handleSaveToLogs}
                       className="mt-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl transition-all shadow-[0_0_15px_rgba(79,70,229,0.3)] flex items-center gap-2"
                     >
-                      <Save className="w-4 h-4" /> Sauvegarder la prédiction
+                      <Save className="w-4 h-4" /> Save Prediction
                     </button>
                   </div>
                 </div>
