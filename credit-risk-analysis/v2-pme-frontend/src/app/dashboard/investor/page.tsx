@@ -244,7 +244,6 @@ export default function InvestorDashboardPage() {
           followers_insta: d.followers_insta !== null && d.followers_insta !== undefined ? String(d.followers_insta) : prev.followers_insta,
           followers_linkedin: d.followers_linkedin !== null && d.followers_linkedin !== undefined ? String(d.followers_linkedin) : prev.followers_linkedin,
           posts_per_month: d.posts_per_month !== null && d.posts_per_month !== undefined ? String(d.posts_per_month) : prev.posts_per_month,
->>>>>>> recovery-fix-branch
         }));
         
         setEnrichGrokResult(d);
