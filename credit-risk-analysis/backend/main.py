@@ -12,9 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from core.database import Base, engine
 from ml_services.predictor import model_loader
-
 # Import ALL routers at top (clean architecture)
-from routers import auth, marketplace, scoring, chat
+from routers import auth, marketplace, scoring, enrich, wishlist, chat
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +60,8 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(scoring.router, prefix="/scoring", tags=["Scoring"])
 app.include_router(marketplace.router, prefix="/marketplace", tags=["Marketplace"])
+app.include_router(enrich.router, prefix="/enrich", tags=["Enrichment"])
+app.include_router(wishlist.router, prefix="/wishlist", tags=["Wishlist"])
 app.include_router(chat.router, prefix="/chat", tags=["Chatbot"])
 
 

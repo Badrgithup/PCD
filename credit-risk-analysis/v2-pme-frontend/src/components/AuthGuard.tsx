@@ -32,7 +32,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950">
-        <div className="text-gray-500 text-sm animate-pulse">Vérification de la session...</div>
+        <div className="text-gray-500 text-sm animate-pulse">Checking session...</div>
       </div>
     );
   }

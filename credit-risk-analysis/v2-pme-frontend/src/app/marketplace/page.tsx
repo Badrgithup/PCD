@@ -178,8 +178,7 @@ export default function MarketplacePage() {
       const detail = e?.response?.data?.detail || e?.message;
       console.error("[UNLOCK ERROR] Status:", status, "|", detail);
       if (status === 402) {
-        alert("You are out of credits.");
-        router.push("/pricing");
+        setShowCreditsModal(true);
       } else {
         alert(`Unlock failed: ${detail}`);
       }
@@ -224,12 +223,12 @@ export default function MarketplacePage() {
           <div>
             <h1 className="text-4xl font-bold mb-2">Investor Marketplace</h1>
             <p className="text-gray-400">
-              Découvrez et évaluez des PMEs tunisiennes vérifiées. Les contacts sont accessibles par abonnement.
+              Discover and evaluate verified Tunisian SMEs. Contact details are available by subscription.
               {dataSource === "mock" && !isLoading && (
-                <span className="ml-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Données Demo</span>
+                <span className="ml-2 text-xs text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Demo Data</span>
               )}
               {dataSource === "live" && (
-                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Profils Live</span>
+                <span className="ml-2 text-xs text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-full border border-teal-400/20">Live Profiles</span>
               )}
             </p>
           </div>

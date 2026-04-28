@@ -13,6 +13,7 @@ export const useCreditsRefresh = () => useContext(CreditsRefreshContext);
 
 // ── Insufficient Credits Modal ─────────────────────────────────────────────
 export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
+  const modalRouter = useRouter();
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="relative bg-slate-900 border border-red-500/30 rounded-2xl p-8 max-w-sm w-full shadow-2xl mx-4">
@@ -23,20 +24,23 @@ export function InsufficientCreditsModal({ onClose }: { onClose: () => void }) {
           <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center">
             <AlertCircle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-white">Crédits insuffisants</h2>
+          <h2 className="text-xl font-bold text-white">Insufficient Credits</h2>
           <p className="text-gray-400 text-sm leading-relaxed">
-            Vous n'avez plus de crédits pour débloquer des contacts.<br />
-            Chaque nouveau compte démarre avec <strong className="text-teal-400">5 crédits gratuits</strong>.
+            You have no credits left to unlock contacts.<br />
+            Every new account starts with <strong className="text-teal-400">5 free credits</strong>.
           </p>
           <div className="flex gap-3 w-full mt-2">
             <button
               onClick={onClose}
               className="flex-1 py-2.5 rounded-xl border border-white/10 text-sm text-gray-300 hover:bg-white/5 transition-all"
             >
-              Fermer
+              Close
             </button>
-            <button className="flex-1 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all">
-              Recharger 🔋
+            <button
+              onClick={() => { onClose(); modalRouter.push("/pricing"); }}
+              className="flex-1 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all"
+            >
+              Recharge 🔋
             </button>
           </div>
         </div>
@@ -127,8 +131,9 @@ export default function Navbar() {
                   href={user.role === "PME" ? "/dashboard/pme" : "/dashboard/investor"}
                   className="text-sm font-medium text-gray-300 hover:text-white transition-colors"
                 >
-                  Tableau de bord
+                  Dashboard
                 </Link>
+
 
                 {/* Credit Badge */}
                 {credits !== null && (
@@ -138,7 +143,7 @@ export default function Navbar() {
                       : "bg-teal-500/10 border-teal-500/20 text-teal-400"
                   }`}>
                     <Coins className="w-3.5 h-3.5" />
-                    {credits} crédit{credits !== 1 ? "s" : ""}
+                    {credits} credit{credits !== 1 ? "s" : ""}
                   </div>
                 )}
 
@@ -152,7 +157,7 @@ export default function Navbar() {
                 <button
                   onClick={handleLogout}
                   className="px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 text-sm font-bold hover:bg-white/5 transition-all active:scale-95 flex items-center gap-1.5"
-                  title="Déconnexion"
+                  title="Log Out"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -161,7 +166,7 @@ export default function Navbar() {
                 <button
                   onClick={handleDeleteAccount}
                   className="px-4 py-2.5 rounded-xl border border-red-500/30 text-red-400 text-sm font-bold hover:bg-red-500/10 transition-all active:scale-95 flex items-center gap-1.5"
-                  title="Supprimer Mon Compte"
+                  title="Delete My Account"
                 >
                   <UserX className="w-4 h-4" />
                 </button>
@@ -169,13 +174,13 @@ export default function Navbar() {
             ) : (
               <>
                 <Link href="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
-                  Connexion
+                  Sign In
                 </Link>
                 <Link
                   href="/register"
                   className="px-5 py-2.5 rounded-xl bg-teal-500 text-slate-950 text-sm font-bold hover:bg-teal-400 transition-all shadow-[0_0_15px_rgba(45,212,191,0.3)] active:scale-95"
                 >
-                  Obtenir Mon FinScore
+                  Get My FinScore
                 </Link>
               </>
             )}

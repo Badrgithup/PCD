@@ -63,9 +63,9 @@ export default function WishlistPage() {
         
         <div className="max-w-7xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Historique des Prédictions</h1>
+            <h1 className="text-4xl font-bold mb-2">Prediction History</h1>
             <p className="text-gray-400">
-              Retrouvez toutes les entreprises PME que vous avez sauvegardées pour un suivi approfondi.
+              Access all the SME companies you've saved for in-depth monitoring.
             </p>
           </div>
 
@@ -76,8 +76,8 @@ export default function WishlistPage() {
           ) : savedSmes.length === 0 ? (
             <div className="text-center py-24 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl">
               <Lock className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-300">Aucun historique enregistré</h3>
-              <p className="text-gray-500 mt-2">Sauvegardez vos prédictions pour les retrouver ici.</p>
+              <h3 className="text-xl font-bold text-gray-300">No saved history</h3>
+              <p className="text-gray-500 mt-2">Save your predictions to find them here.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -100,7 +100,7 @@ export default function WishlistPage() {
                     {/* The Remove Button */}
                     <button
                       onClick={() => handleRemove(sme.id)}
-                      title="Retirer des favoris"
+                      title="Remove from favorites"
                       className="absolute top-6 right-6 p-2 rounded-full bg-rose-500/10 text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500/20"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -109,11 +109,11 @@ export default function WishlistPage() {
 
                   <div className="mt-6 flex flex-col gap-3">
                     <div className="flex justify-between items-center text-sm p-3 bg-black/20 rounded-xl">
-                      <span className="text-gray-400">FinScore Evalué</span>
+                      <span className="text-gray-400">Evaluated FinScore</span>
                       <span className="font-black text-lg text-white">{sme.finScore} <span className="text-xs text-gray-500">/1000</span></span>
                     </div>
                     <div className="flex justify-between items-center text-sm p-3 bg-black/20 rounded-xl">
-                      <span className="text-gray-400">Evaluation du Risque</span>
+                      <span className="text-gray-400">Risk Evaluation</span>
                       <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded border ${getTierColor(sme.riskTier)}`}>
                         {sme.riskTier}
                       </span>

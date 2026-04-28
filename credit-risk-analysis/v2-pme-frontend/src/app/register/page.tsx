@@ -172,14 +172,13 @@ export default function RegisterPage() {
                 <option value="Construction">Construction</option>
               </select>
 
-              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Numéro de téléphone</label>
+              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Phone Number</label>
               <input
                 type="tel"
-                required
                 value={formData.contact_phone}
                 onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all text-white outline-none mb-4"
-                placeholder="+216 71 000 000"
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 transition-all text-white outline-none mb-4"
+                placeholder="+216 20 123 456"
               />
             </motion.div>
           )}

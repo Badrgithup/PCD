@@ -193,11 +193,17 @@ def unlock_contact(
         print(f"[UNLOCK ERROR] DB write failed: {e}")
         raise HTTPException(status_code=500, detail="Database error during credit deduction.")
 
+    # Resolve real contact info: prefer profile fields, fall back to the
+    # PME owner's registration email so every company gets unique data.
+    pme_owner = db.query(User).filter(User.id == profile.user_id).first()
+    resolved_email = profile.contact_email or (pme_owner.email if pme_owner else "N/A")
+    resolved_phone = profile.contact_phone or "+216 —"
+
     return {
         "success": True,
         "credits_remaining": current_user.credits,
-        "contact_email": profile.contact_email or "",
-        "contact_phone": profile.contact_phone or "",
+        "contact_email": resolved_email,
+        "contact_phone": resolved_phone,
         "message": "Contact information unlocked.",
     }
 

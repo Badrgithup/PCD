@@ -28,7 +28,7 @@ MOCK_DB: dict = {
         "employees": 42,
         "sector": "Technology / IT",
         "governorate": "Tunis",
-        "description": "Développement de solutions digitales B2B pour les PMEs tunisiennes.",
+        "description": "Development of B2B digital solutions for Tunisian SMEs.",
         "linkedin_followers": 1800,
         "founded_year": 2015,
         "rne_id": "1234567A",
@@ -39,7 +39,7 @@ MOCK_DB: dict = {
         "employees": 87,
         "sector": "Agriculture",
         "governorate": "Sfax",
-        "description": "Exportation d'huile d'olive et de dattes biologiques certifiées.",
+        "description": "Export of certified organic olive oil and dates.",
         "linkedin_followers": 650,
         "founded_year": 2009,
         "rne_id": "7654321B",
@@ -50,7 +50,7 @@ MOCK_DB: dict = {
         "employees": 210,
         "sector": "Transport / Logistics",
         "governorate": "Ariana",
-        "description": "Logistique et transport terrestre couvrant la Tunisie et le Maghreb.",
+        "description": "Land logistics and transport covering Tunisia and the Maghreb.",
         "linkedin_followers": 4200,
         "founded_year": 2001,
         "rne_id": "9876543C",
@@ -83,7 +83,7 @@ def enrich_company_mock(payload: EnrichRequest):
             "status": "partial",
             "source": "mock_b2b_api",
             "missing_fields": ["website", "employees", "sector", "description", "linkedin_followers"],
-            "message": "Entreprise non trouvée dans la base mock. Saisie manuelle requise.",
+            "message": "Company not found in the mock database. Manual entry required.",
         }
 
 
@@ -93,13 +93,12 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # current recommended model (llama3-8b-8192 decommissioned)
 
 SYSTEM_PROMPT = (
-    "You are a financial estimator for the Tunisian market. You MUST return ONLY valid JSON with no markdown. "
-    "You MUST estimate values for ALL fields based on the size implied by the company name. NEVER return null. "
-    "RULES: "
-    "1. `capital_tnd`: Integer between 10,000 and 50,000,000. "
-    "2. `cnss_score`: Integer between 100 and 2000 (DO NOT USE DECIMALS like 0.86). A large company should be close to 1500. "
-    "3. `establishment_duration`: Integer in days between 500 and 15000. "
-    "4. `total_brevets`: Integer between 0 and 50."
+    "You are a financial data API. Return ONLY a valid JSON object. Generate highly realistic, UNIQUE data based specifically on the scale implied by the company name. "
+    "Do not use default fallback numbers. Ensure logical consistency (e.g., expenses < turnover, cnss_workers <= total_workers). "
+    "The JSON object MUST STRICTLY contain ONLY these exact numeric keys: "
+    "\"business_turnover_tnd\", \"business_expenses_tnd\", \"nbr_of_workers\", \"workers_verified_cnss\", "
+    "\"business_age_years\", \"compliance_rne_score\" (0-10), \"steg_sonede_score\" (0-10), "
+    "\"banking_maturity_score\" (0-10), \"followers_fcb\", \"followers_insta\", \"followers_linkedin\", \"posts_per_month\"."
 )
 
 @router.post("/groq")
@@ -152,6 +151,7 @@ async def enrich_company_groq(payload: EnrichRequest):
         ],
         "temperature": 0.8,
         "max_tokens": 512,
+        "response_format": {"type": "json_object"}
     }
 
     print(f"[GROQ] Calling Groq API for company: '{payload.company_name}' | model: {GROQ_MODEL}")
@@ -175,16 +175,18 @@ async def enrich_company_groq(payload: EnrichRequest):
 
         # Extract standard structure using explicit bounded properties
         result = {
+            "business_turnover_tnd": extracted.get("business_turnover_tnd"),
+            "business_expenses_tnd": extracted.get("business_expenses_tnd"),
+            "nbr_of_workers": extracted.get("nbr_of_workers"),
+            "workers_verified_cnss": extracted.get("workers_verified_cnss"),
             "business_age_years": extracted.get("business_age_years"),
-            "number_of_owners": extracted.get("number_of_owners"),
-            "annual_turnover_tnd": extracted.get("annual_turnover_tnd"),
-            "annual_expenses_tnd": extracted.get("annual_expenses_tnd"),
-            "total_workers": extracted.get("total_workers"),
-            "cnss_verified_workers": extracted.get("cnss_verified_workers"),
-            "rne_compliance_score": extracted.get("rne_compliance_score"),
-            "steg_sonede_rating": extracted.get("steg_sonede_rating"),
+            "compliance_rne_score": extracted.get("compliance_rne_score"),
+            "steg_sonede_score": extracted.get("steg_sonede_score"),
             "banking_maturity_score": extracted.get("banking_maturity_score"),
-            "facebook_followers": extracted.get("facebook_followers"),
+            "followers_fcb": extracted.get("followers_fcb"),
+            "followers_insta": extracted.get("followers_insta"),
+            "followers_linkedin": extracted.get("followers_linkedin"),
+            "posts_per_month": extracted.get("posts_per_month"),
         }
 
         print(f"[GROQ] Extracted: {result}")
@@ -206,5 +208,5 @@ async def enrich_company_groq(payload: EnrichRequest):
         print(f"[GROQ ERROR] {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Enrichissement Groq échoué: {str(e)}"
+            detail=f"Groq enrichment failed: {str(e)}"
         )
