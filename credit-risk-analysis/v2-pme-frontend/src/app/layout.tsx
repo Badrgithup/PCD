@@ -12,16 +12,12 @@ export const metadata: Metadata = {
   description: "Innovative AI-driven Fintech platform for Tunisian SMEs.",
 };
 
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import ChatbotWidget from "@/components/ChatbotWidget";
-
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     // Force dark mode permanently — no theme switching
-    <html lang="fr" className="dark">
+    <html lang="en" className="dark">
       <body
         className={`${inter.className} bg-slate-950 text-slate-50 antialiased`}
       >
