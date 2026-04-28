@@ -185,8 +185,7 @@ export default function MarketplacePage() {
       const detail = e?.response?.data?.detail || e?.message;
       console.error("[UNLOCK ERROR] Status:", status, "|", detail);
       if (status === 402) {
-        alert("You are out of credits.");
-        router.push("/pricing");
+        setShowCreditsModal(true);
       } else {
         alert(`Unlock failed: ${detail}`);
       }

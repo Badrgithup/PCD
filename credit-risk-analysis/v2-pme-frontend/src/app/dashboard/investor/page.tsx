@@ -230,19 +230,21 @@ export default function InvestorDashboardPage() {
       if (res.data.status === "success") {
         const d = res.data.data;
         
-        // Calculate age and compliance based on Groq payload
-        const ageYears = d.establishment_duration ? Math.max(1, Math.round(d.establishment_duration / 365)) : "";
-        const rneScore = d.total_brevets !== undefined ? Math.min(10, 5 + d.total_brevets) : 5;
-        // Assume cnss_score from Groq is out of 10 or 100? If it's a raw number just use it, or default to 5.
-        const cnssScore = d.cnss_score !== undefined ? (d.cnss_score > 10 ? d.cnss_score / 10 : d.cnss_score) : 5;
-
         setFormData(prev => ({
           ...prev,
           company_name: enrichQuery,
-          business_turnover_tnd: d.capital_tnd ? String(d.capital_tnd) : prev.business_turnover_tnd,
-          business_age_years: ageYears ? String(ageYears) : prev.business_age_years,
-          compliance_rne_score: rneScore,
-          steg_sonede_score: cnssScore,
+          business_turnover_tnd: d.business_turnover_tnd !== null && d.business_turnover_tnd !== undefined ? String(d.business_turnover_tnd) : prev.business_turnover_tnd,
+          business_expenses_tnd: d.business_expenses_tnd !== null && d.business_expenses_tnd !== undefined ? String(d.business_expenses_tnd) : prev.business_expenses_tnd,
+          nbr_of_workers: d.nbr_of_workers !== null && d.nbr_of_workers !== undefined ? String(d.nbr_of_workers) : prev.nbr_of_workers,
+          workers_verified_cnss: d.workers_verified_cnss !== null && d.workers_verified_cnss !== undefined ? String(d.workers_verified_cnss) : prev.workers_verified_cnss,
+          business_age_years: d.business_age_years !== null && d.business_age_years !== undefined ? String(d.business_age_years) : prev.business_age_years,
+          compliance_rne_score: d.compliance_rne_score !== null && d.compliance_rne_score !== undefined ? Number(d.compliance_rne_score) : prev.compliance_rne_score,
+          steg_sonede_score: d.steg_sonede_score !== null && d.steg_sonede_score !== undefined ? Number(d.steg_sonede_score) : prev.steg_sonede_score,
+          banking_maturity_score: d.banking_maturity_score !== null && d.banking_maturity_score !== undefined ? Number(d.banking_maturity_score) : prev.banking_maturity_score,
+          followers_fcb: d.followers_fcb !== null && d.followers_fcb !== undefined ? String(d.followers_fcb) : prev.followers_fcb,
+          followers_insta: d.followers_insta !== null && d.followers_insta !== undefined ? String(d.followers_insta) : prev.followers_insta,
+          followers_linkedin: d.followers_linkedin !== null && d.followers_linkedin !== undefined ? String(d.followers_linkedin) : prev.followers_linkedin,
+          posts_per_month: d.posts_per_month !== null && d.posts_per_month !== undefined ? String(d.posts_per_month) : prev.posts_per_month,
         }));
         
         setEnrichGrokResult(d);

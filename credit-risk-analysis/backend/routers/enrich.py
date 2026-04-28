@@ -93,9 +93,12 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = "llama-3.3-70b-versatile"  # current recommended model (llama3-8b-8192 decommissioned)
 
 SYSTEM_PROMPT = (
-    "You are a financial API. Return ONLY raw JSON. Generate highly realistic, UNIQUE data based specifically on the scale implied by the company name. "
-    "Do not use default fallback numbers. The JSON MUST STRICTLY contain ONLY these exact keys: "
-    "\"capital_tnd\" (number), \"cnss_score\" (number), \"establishment_duration\" (number), \"total_brevets\" (number)."
+    "You are a financial data API. Return ONLY a valid JSON object. Generate highly realistic, UNIQUE data based specifically on the scale implied by the company name. "
+    "Do not use default fallback numbers. Ensure logical consistency (e.g., expenses < turnover, cnss_workers <= total_workers). "
+    "The JSON object MUST STRICTLY contain ONLY these exact numeric keys: "
+    "\"business_turnover_tnd\", \"business_expenses_tnd\", \"nbr_of_workers\", \"workers_verified_cnss\", "
+    "\"business_age_years\", \"compliance_rne_score\" (0-10), \"steg_sonede_score\" (0-10), "
+    "\"banking_maturity_score\" (0-10), \"followers_fcb\", \"followers_insta\", \"followers_linkedin\", \"posts_per_month\"."
 )
 
 @router.post("/groq")
@@ -126,6 +129,7 @@ async def enrich_company_groq(payload: EnrichRequest):
         ],
         "temperature": 0.8,
         "max_tokens": 512,
+        "response_format": {"type": "json_object"}
     }
 
     print(f"[GROQ] Calling Groq API for company: '{payload.company_name}' | model: {GROQ_MODEL}")
@@ -150,10 +154,18 @@ async def enrich_company_groq(payload: EnrichRequest):
                 raise ValueError(f"Cannot parse JSON from: {raw_content}")
 
         result = {
-            "capital_tnd": extracted.get("capital_tnd"),
-            "cnss_score": extracted.get("cnss_score"),
-            "establishment_duration": extracted.get("establishment_duration"),
-            "total_brevets": extracted.get("total_brevets"),
+            "business_turnover_tnd": extracted.get("business_turnover_tnd"),
+            "business_expenses_tnd": extracted.get("business_expenses_tnd"),
+            "nbr_of_workers": extracted.get("nbr_of_workers"),
+            "workers_verified_cnss": extracted.get("workers_verified_cnss"),
+            "business_age_years": extracted.get("business_age_years"),
+            "compliance_rne_score": extracted.get("compliance_rne_score"),
+            "steg_sonede_score": extracted.get("steg_sonede_score"),
+            "banking_maturity_score": extracted.get("banking_maturity_score"),
+            "followers_fcb": extracted.get("followers_fcb"),
+            "followers_insta": extracted.get("followers_insta"),
+            "followers_linkedin": extracted.get("followers_linkedin"),
+            "posts_per_month": extracted.get("posts_per_month"),
         }
 
         print(f"[GROQ] Extracted: {result}")

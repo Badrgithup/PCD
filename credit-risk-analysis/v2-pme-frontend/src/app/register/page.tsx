@@ -20,6 +20,7 @@ export default function RegisterPage() {
     identifiant_unique_rne: "",
     governorate: "Tunis",
     sector: "Technology",
+    contact_phone: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,6 +171,15 @@ export default function RegisterPage() {
                 <option value="Textile">Textile</option>
                 <option value="Construction">Construction</option>
               </select>
+
+              <label className="block text-sm font-medium text-gray-300 mb-1.5 ml-1">Phone Number</label>
+              <input
+                type="tel"
+                value={formData.contact_phone}
+                onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-teal-500 transition-all text-white outline-none mb-4"
+                placeholder="+216 20 123 456"
+              />
             </motion.div>
           )}
 
