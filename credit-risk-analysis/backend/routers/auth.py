@@ -45,12 +45,10 @@ def register(payload: UserRegister, db: Session = Depends(get_db)):
                 identifiant_unique_rne=payload.identifiant_unique_rne or None,
                 sector=payload.sector,
                 governorate=payload.governorate,
-                contact_email=payload.email,          # default contact = registration email
+                contact_email=payload.contact_email or payload.email,
                 contact_phone=payload.contact_phone,
                 visibility_status="Private",
                 marketplace_status=0,
-                contact_phone=payload.contact_phone,
-                contact_email=payload.contact_email,
             )
             db.add(profile)
             print(f"[REGISTER] PME profile created for {payload.email}")
