@@ -5,6 +5,17 @@ Fintech SaaS platform connecting Tunisian SMEs with investors
 using alternative credit scoring powered by dual-model stacking ML.
 """
 
+import sys
+import io
+
+# Force UTF-8 encoding for stdout and stderr to handle emojis and special characters on Windows
+if sys.platform == "win32":
+    # Only reconfigure if it's not already utf-8 to avoid issues in some environments
+    if hasattr(sys.stdout, 'buffer') and (not hasattr(sys.stdout, 'encoding') or sys.stdout.encoding.lower() != 'utf-8'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'buffer') and (not hasattr(sys.stderr, 'encoding') or sys.stderr.encoding.lower() != 'utf-8'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

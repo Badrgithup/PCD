@@ -15,10 +15,29 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import sys
+import io
+
 # Load .env from the backend directory
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 router = APIRouter()
+
+def safe_print(*args, **kwargs):
+    """Print that won't crash on Windows encoding errors."""
+    try:
+        print(*args, **kwargs)
+    except UnicodeEncodeError:
+        # Fallback for environments with limited charsets (like Windows CMD)
+        new_args = [
+            str(arg).encode(sys.stdout.encoding or 'ascii', errors='replace').decode(sys.stdout.encoding or 'ascii')
+            if isinstance(arg, str) else arg
+            for arg in args
+        ]
+        try:
+            print(*new_args, **kwargs)
+        except Exception:
+            pass # Last resort: ignore print errors to avoid crashing logic
 
 # ── Mock B2B Database ──────────────────────────────────────────────────────
 MOCK_DB: dict = {
@@ -75,10 +94,10 @@ def enrich_company_mock(payload: EnrichRequest):
             break
 
     if matched:
-        print(f"[ENRICH MOCK] Match: '{payload.company_name}' → {matched['company_name']}")
+        safe_print(f"[ENRICH MOCK] Match: '{payload.company_name}' → {matched['company_name']}")
         return {"status": "success", "source": "mock_b2b_api", "data": matched}
     else:
-        print(f"[ENRICH MOCK] No match for '{payload.company_name}'")
+        safe_print(f"[ENRICH MOCK] No match for '{payload.company_name}'")
         return {
             "status": "partial",
             "source": "mock_b2b_api",
@@ -110,7 +129,7 @@ async def enrich_company_groq(payload: EnrichRequest):
     """
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        print("[GROQ] GROQ_API_KEY not set in .env")
+        safe_print("[GROQ] GROQ_API_KEY not set in .env")
         raise HTTPException(
             status_code=503,
             detail="Groq API key not configured. Set GROQ_API_KEY in backend/.env"
@@ -154,42 +173,50 @@ async def enrich_company_groq(payload: EnrichRequest):
         "response_format": {"type": "json_object"}
     }
 
-    print(f"[GROQ] Calling Groq API for company: '{payload.company_name}' | model: {GROQ_MODEL}")
+    safe_print(f"[GROQ] Calling Groq API for company: '{payload.company_name}' | model: {GROQ_MODEL}")
 
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.post(GROQ_API_URL, headers=headers, json=body)
-            print("🚨 RAW GROQ RESPONSE:", response.text)
+            # safe_print("[GROQ] RAW RESPONSE:", response.text) # Too noisy and risky
             response.raise_for_status()
 
         groq_data = response.json()
         raw_content = groq_data["choices"][0]["message"]["content"].strip()
-        print(f"[GROQ] Raw response: {raw_content}")
+        safe_print(f"[GROQ] Raw response: {raw_content[:200]}...")
 
         # Parse JSON — handle potential markdown code blocks
         clean_content = raw_content.replace('```json', '').replace('```', '').strip()
+        
+        # Robust JSON extraction if LLM adds text around it
+        if "{" in clean_content and "}" in clean_content:
+            start = clean_content.find("{")
+            end = clean_content.rfind("}") + 1
+            clean_content = clean_content[start:end]
+
         try:
             extracted = json.loads(clean_content)
         except json.JSONDecodeError as e:
+            safe_print(f"[GROQ ERROR] JSON Parse Error: {e} | Content: {clean_content[:100]}")
             raise HTTPException(status_code=500, detail=f"JSON Parse Error: {str(e)}")
 
         # Extract standard structure using explicit bounded properties
         result = {
-            "business_turnover_tnd": extracted.get("business_turnover_tnd"),
-            "business_expenses_tnd": extracted.get("business_expenses_tnd"),
-            "nbr_of_workers": extracted.get("nbr_of_workers"),
-            "workers_verified_cnss": extracted.get("workers_verified_cnss"),
+            "business_turnover_tnd": extracted.get("business_turnover_tnd") or extracted.get("annual_turnover_tnd"),
+            "business_expenses_tnd": extracted.get("business_expenses_tnd") or extracted.get("annual_expenses_tnd"),
+            "nbr_of_workers": extracted.get("nbr_of_workers") or extracted.get("total_workers"),
+            "workers_verified_cnss": extracted.get("workers_verified_cnss") or extracted.get("cnss_verified_workers"),
             "business_age_years": extracted.get("business_age_years"),
-            "compliance_rne_score": extracted.get("compliance_rne_score"),
-            "steg_sonede_score": extracted.get("steg_sonede_score"),
+            "compliance_rne_score": extracted.get("compliance_rne_score") or extracted.get("rne_compliance_score"),
+            "steg_sonede_score": extracted.get("steg_sonede_score") or extracted.get("steg_sonede_rating"),
             "banking_maturity_score": extracted.get("banking_maturity_score"),
-            "followers_fcb": extracted.get("followers_fcb"),
-            "followers_insta": extracted.get("followers_insta"),
+            "followers_fcb": extracted.get("followers_fcb") or extracted.get("facebook_followers"),
+            "followers_insta": extracted.get("followers_insta") or extracted.get("instagram_followers"),
             "followers_linkedin": extracted.get("followers_linkedin"),
             "posts_per_month": extracted.get("posts_per_month"),
         }
 
-        print(f"[GROQ] Extracted: {result}")
+        # safe_print(f"[GROQ] Extracted: {result}")
 
         return {
             "status": "success",
@@ -199,13 +226,13 @@ async def enrich_company_groq(payload: EnrichRequest):
         }
 
     except httpx.HTTPStatusError as e:
-        print(f"[GROQ ERROR] HTTP {e.response.status_code}: {e.response.text[:300]}")
+        safe_print(f"[GROQ ERROR] HTTP {e.response.status_code}: {e.response.text[:300]}")
         raise HTTPException(
             status_code=502,
             detail=f"Groq API error {e.response.status_code}: {e.response.text[:200]}"
         )
     except Exception as e:
-        print(f"[GROQ ERROR] {type(e).__name__}: {e}")
+        safe_print(f"[GROQ ERROR] {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Groq enrichment failed: {str(e)}"
